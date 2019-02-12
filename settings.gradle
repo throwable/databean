@@ -1,0 +1,5 @@
+rootProject.name = 'databean'
+include 'annotation-processor'
+include 'databean-test'
+include 'databean-api'
+

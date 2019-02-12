@@ -1,0 +1,113 @@
+Objetivos e ideas:
+------------------
+
+Stepped Builders
+    - Si el objeto no tiene campos obligatorios se usa simple builder:
+        User.of() : User
+    - Si el objeto tiene campos obligatorios se crea constructor con parametros:
+        User.of("Anton", 18) : User
+            o stepped builder:
+        User.of()           // : UserBuilderName
+            .name("Anton")  // : UserBuilderAge
+            .age(18)        // : User
+
+Setters
+    Opcion 1:
+        - Se generan automaticamente para todos los campos
+        - Si el campo es mutable se genera un setter que establece un valor de objeto:
+            user.name("Vasya")      // : User
+                .age(22);           // : User
+        - Si el campo es inmutable se genera setter que hace la copia del objeto:
+            user = user.withName("Vasya")   // : User
+                        .withAge(22);       // : User
+            ??? utilizar mismos nombres sin with?: name(), age()
+            ??? ofName("Vasya").ofAge(22);
+    Opcion 2:
+        El problema de la Opcion 1 es que se complica el refactoring por IDE.
+        Se puede probar esto:
+            set(user.name(), "Vasya")
+            set(user.age(), 12)
+            set(user::name, "Vasya")
+            set(user::age, 12)
+        user = set(user.name(), "Petya")    // : <T, V> T set(V property, V value)
+        Less control but no code generation.
+        Devolver el nombre de la propiedad requiere tricks:
+            static ThreadLocal<String> lastProperyAccessed;
+
+Inheritance
+    - Generate MetaInterface that extends correspondent other MetaInterfaces
+    - Si el campo del objeto es una clase no abstracta, se utiliza instancias para crearlo
+
+InitBlock
+    - se ejecuta despues de constructor
+
+Metadata API
+    Provide metadata api parecido a Kotlin
+    - acceso estatico a propiedades
+        Opcion 1 (code generation):
+            UserMeta.name                   // : Property<T, V>, T = User, V = String
+            UserMeta.contact                // : Property<T, V>, T = User, V = Contact
+        Opcion 2 (sin generation):
+            $(User::name)                   // : Property<?,V> ???
+    - lista fija de propiedades
+    - lista de propiedades y valores
+    - Dynamic instantiator
+        MetaClass.$init$                    // : (A, B, C, D) -> MetaClass
+
+
+@Nullable support
+    - if not nullable initialize with a default value
+
+Collections
+    Collections:
+        - generate setters
+            .names(T... names)
+            .names(Collection<T> names)
+            .name(T name)   <- add element to collection (depluralized)
+    Maps:
+        - generate setters
+            .entities(Pair<K,V>... entries)
+            .entitites(Map<K,V> entries)    <- detectar si el mapa es mutable, hacer copia para objetos inmutables
+            .entity(Pair<K,V> entry)        <- put element to collection (depluralized)
+            .entity(K key, V value)         <- put element to collection (depluralized)
+    - Integración con librerias (guava, vavr, etc...)
+    - Hacer propia implementación inmutable de List/Set/Map
+    - Siempre iniciar con Collections.emptyCollection()
+
+Data classes (immutables)
+
+Delegates and Lazy
+
+Nested (embedded) classes
+    - poder mutar valores en embedded classes
+        user.contactAddressStreet("").
+    - para immutables hacer y devolver una copia de subarbol
+    - idea: si contact/address no estan inicializados crearlos al acceder
+        - Nunca se devuelven objetos NULL
+        - Objetos Nested deben tener constructor vacío: Contact.of()
+        - hashCode()/equals() deben tomar valor null del campo como objeto vacío:
+            user.contact == null <=> user.contact == Contact.of()
+        - no deben ser ni clase abstracta ni interface
+    - se puede hacer truco devolviendo interfaz "trucada" que tracea mutaciones y establece al objeto padre
+
+Beanpath
+    - poder acceder usando beanpath: user.contact.address.street
+        UserMeta.path(u -> u.contact().address().street())      // : Property<User, String>
+            .set(user, "Lenina");
+        user.path(u -> u.contact().address().street())          // : BoundPath<User, String>
+            .set("Lenina")
+        user = user.set(u -> u.name(), "Petya");
+        user = user.set(User::name, "Petya");
+        user.get("contact.address.street");
+        $(User::contact).$(Contact::address).$(Address::street);
+    - null guards: devolver nulo si alguno de
+
+Singletons (objects)
+
+Custom Implementations:
+    @CustomAccessor(MyAccessor.class)
+    class MyAccessor implements CustomAccessor {
+        Object create(Meta metaClass, Object... params) {}
+        Object getValue(Object bean, Property property) {}
+        Object setValue(Object bean, Property property, Object value) {}
+    }
