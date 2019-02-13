@@ -58,6 +58,14 @@ Metadata API
 @Nullable support
     - if not nullable initialize with a default value
 
+Al generar resolver tambien DataClassees compilados en otros paquetes:
+    User:
+        Contact contact();
+    MUser:
+        MContact contact();     // <-- MContact se necesita de ser resuelto
+    La resolución funciona dentro del paquete, pero no con las classes de otro jar que ya estan compilados.
+
+
 Collections
     Collections:
         - generate setters

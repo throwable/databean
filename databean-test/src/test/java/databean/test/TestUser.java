@@ -10,7 +10,7 @@ public class TestUser {
     //@Test
     public void testUser() {
         final Class<User> userClass = User.class;
-        final Class<$User> userMetaClass = $User.class;
+        final Class<MUser> userMetaClass = MUser.class;
         User user = null;
         final Supplier<String> name = user::name;
         final Function<User, String> name1 = User::name;
@@ -29,10 +29,10 @@ public class TestUser {
 
 
     public void testMetadata() {
-        $User.of()
+        MUser.of()
                 .age(12)
                 .name("Vasya")
-                .contact($Contact.of()
+                .contact(MContact.of()
                         .phone("test")
                 );
     }

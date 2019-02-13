@@ -19,10 +19,10 @@ public class BeanMetadataResolver {
         this.procEnv = procEnv;
     }
 
-    public BeanMetadata resolve(TypeElement element) {
+    public DataClassInfo resolve(TypeElement element) {
         final String className = element.getSimpleName().toString();
         final String packageName = procEnv.getElementUtils().getPackageOf(element).getQualifiedName().toString();
-        final String metaClassName = BeanMetadata.metaClassName(className);
+        final String metaClassName = DataClassInfo.metaClassName(className);
         final boolean mutable = element.getAnnotation(DataClass.class).mutable();
 
         /* Do not check this
@@ -31,7 +31,7 @@ public class BeanMetadataResolver {
             throw new RuntimeException("Interface " + className +" must extend " + metaClassName);
         */
 
-        final ArrayList<BeanMetadata.MetaProperty> metaProperties = new ArrayList<>();
+        final ArrayList<DataClassInfo.Property> metaProperties = new ArrayList<>();
 
         for (Element enclosedElement : element.getEnclosedElements()) {
 
@@ -67,7 +67,7 @@ public class BeanMetadataResolver {
                     }
                 }
                 try {
-                    metaProperties.add(new BeanMetadata.MetaProperty(propertyName, returnType, initial, readonly,
+                    metaProperties.add(new DataClassInfo.Property(propertyName, returnType, initial, readonly,
                             defaultValue, computed));
                 } catch (IllegalArgumentException e) {
                     throw new RuntimeException("DataClass property definition error: " + e.getMessage());
@@ -75,6 +75,6 @@ public class BeanMetadataResolver {
             }
         }
 
-        return new BeanMetadata(packageName, className, metaProperties, mutable);
+        return new DataClassInfo(packageName, className, metaProperties, mutable);
     }
 }

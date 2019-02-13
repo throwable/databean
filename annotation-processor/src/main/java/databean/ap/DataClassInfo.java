@@ -1,22 +1,23 @@
 package databean.ap;
 
+import com.squareup.javapoet.ClassName;
+
 import javax.lang.model.type.TypeMirror;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-public class BeanMetadata {
-    public static class MetaProperty {
+public class DataClassInfo {
+    public static class Property {
         public final String name;
         public final TypeMirror type;
-
         public final boolean isInitial;
         public final boolean hasDefaultValue;
         public final boolean isComputed;
         public final boolean isReadOnly;
 
-        public MetaProperty(String name, TypeMirror type, boolean isInitial, boolean isReadOnly,
-                            boolean hasDefaultValue, boolean isComputed)
+        public Property(String name, TypeMirror type, boolean isInitial, boolean isReadOnly,
+                        boolean hasDefaultValue, boolean isComputed)
         {
             this.name = name;
 
@@ -53,10 +54,10 @@ public class BeanMetadata {
     public final String className;
     public final String metaClassName;
 
-    public final Map<String, MetaProperty> properties;
+    public final Map<String, Property> properties;
     public final boolean mutable;
 
-    public BeanMetadata(String packageName, String className, List<MetaProperty> properties, boolean mutable) {
+    public DataClassInfo(String packageName, String className, List<Property> properties, boolean mutable) {
         this.packageName = packageName;
         this.className = className;
         this.properties = new LinkedHashMap<>();
@@ -68,7 +69,19 @@ public class BeanMetadata {
     }
 
 
+    public ClassName className() {
+        return ClassName.get(packageName, className);
+    }
+
+    public ClassName metaClassName() {
+        return ClassName.get(packageName, metaClassName);
+    }
+
     public static String metaClassName(String className) {
-        return "$" + className;
+        return "M" + className;
+    }
+
+    public static String beanClassName(String className) {
+        return className + "Bean";
     }
 }

@@ -1,19 +1,15 @@
 package databean.ap;
 
-import com.squareup.javapoet.ClassName;
-import com.squareup.javapoet.JavaFile;
-import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.TypeName;
 import databean.DataClass;
 
 import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
-import java.io.IOException;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -36,7 +32,10 @@ public class DataBeanAnnotationProcessor extends AbstractProcessor {
         procEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "*** Starting annotation processor ***");
 
         final BeanMetadataResolver beanMetadataResolver = new BeanMetadataResolver(procEnv);
-        final BeanMetadataWriter beanMetadataWriter = new BeanMetadataWriter(procEnv);
+
+        roundEnv.getRootElements().forEach(it -> procEnv.getMessager().printMessage(Diagnostic.Kind.OTHER, " " + it));
+
+        Map<TypeName, DataClassInfo> dataBeans = new LinkedHashMap<>();
 
         for (Element element : roundEnv.getElementsAnnotatedWith(DataClass.class)) {
             TypeElement typeElement = (TypeElement) element;
@@ -46,13 +45,20 @@ public class DataBeanAnnotationProcessor extends AbstractProcessor {
 
                 procEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "added file " + typeElement.getSimpleName().toString());
 
-                final BeanMetadata beanMetadata = beanMetadataResolver.resolve(typeElement);
-                beanMetadataWriter.writeBeanMetadata(beanMetadata);
+                final DataClassInfo dataClassInfo = beanMetadataResolver.resolve(typeElement);
+                dataBeans.put(dataClassInfo.className(), dataClassInfo);
             } catch (Exception e) {
                 procEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Error processing class "
                         + typeElement.getSimpleName() + ": " + e.getMessage());
                 throw e;
             }
+        }
+
+        final BeanGenerator beanGenerator = new BeanGenerator(procEnv, dataBeans);
+
+        for (DataClassInfo dataClassInfo : dataBeans.values()) {
+            beanGenerator.generate(dataClassInfo);
+        }
 
         /*String dataClassName = typeElement.getSimpleName().toString();
         String packageName = procEnv.getElementUtils().getPackageOf(typeElement).getQualifiedName().toString();
@@ -80,7 +86,6 @@ public class DataBeanAnnotationProcessor extends AbstractProcessor {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }*/
-        }
 
         return true;
     }
