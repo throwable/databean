@@ -28,7 +28,8 @@ public class DataBeanAnnotationProcessor extends AbstractProcessor {
     }
 
     @Override
-    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv)
+    {
         procEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "*** Starting annotation processor ***");
 
         final BeanMetadataResolver beanMetadataResolver = new BeanMetadataResolver(procEnv);
@@ -54,38 +55,11 @@ public class DataBeanAnnotationProcessor extends AbstractProcessor {
             }
         }
 
-        final BeanGenerator beanGenerator = new BeanGenerator(procEnv, dataBeans);
+        final BeanGenerator beanGenerator = new BeanGenerator(procEnv, beanMetadataResolver, dataBeans);
 
         for (DataClassInfo dataClassInfo : dataBeans.values()) {
             beanGenerator.generate(dataClassInfo);
         }
-
-        /*String dataClassName = typeElement.getSimpleName().toString();
-        String packageName = procEnv.getElementUtils().getPackageOf(typeElement).getQualifiedName().toString();
-
-        ClassName dataClass = ClassName.get(packageName, dataClassName);
-
-        try {
-            *//*JavaFileObject jfo = procEnv.getFiler().createSourceFile(dataClassName + "Meta");
-            Writer writer = jfo.openWriter();*//*
-
-            TypeSpec.Builder metadataClass = TypeSpec
-                    .interfaceBuilder("$" + dataClassName)
-                    .addModifiers(Modifier.PUBLIC*//*, Modifier.FINAL*//*);
-
-            final JavaFile javaFile = JavaFile.builder(packageName, metadataClass.build()).build();
-            javaFile.writeTo(procEnv.getFiler());
-        *//*MethodSpec intentMethod = MethodSpec
-                .methodBuilder(METHOD_PREFIX + dataClassName)
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(classIntent)
-                .addParameter(classContext, "context")
-                .addStatement("return new $T($L, $L)", classIntent, "context", dataClass + ".class")
-                .build();
-        navigatorClass.addMethod(intentMethod);*//*
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }*/
 
         return true;
     }

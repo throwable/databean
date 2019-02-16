@@ -1,7 +1,7 @@
 Objetivos e ideas:
 ------------------
 
-Stepped Builders
+[x] Stepped Builders
     - Si el objeto no tiene campos obligatorios se usa simple builder:
         User.of() : User
     - Si el objeto tiene campos obligatorios se crea constructor con parametros:
@@ -11,35 +11,76 @@ Stepped Builders
             .name("Anton")  // : UserBuilderAge
             .age(18)        // : User
 
-Setters
-    Opcion 1:
-        - Se generan automaticamente para todos los campos
-        - Si el campo es mutable se genera un setter que establece un valor de objeto:
-            user.name("Vasya")      // : User
-                .age(22);           // : User
-        - Si el campo es inmutable se genera setter que hace la copia del objeto:
-            user = user.withName("Vasya")   // : User
-                        .withAge(22);       // : User
-            ??? utilizar mismos nombres sin with?: name(), age()
-            ??? ofName("Vasya").ofAge(22);
-    Opcion 2:
-        El problema de la Opcion 1 es que se complica el refactoring por IDE.
-        Se puede probar esto:
-            set(user.name(), "Vasya")
-            set(user.age(), 12)
-            set(user::name, "Vasya")
-            set(user::age, 12)
-        user = set(user.name(), "Petya")    // : <T, V> T set(V property, V value)
-        Less control but no code generation.
-        Devolver el nombre de la propiedad requiere tricks:
-            static ThreadLocal<String> lastProperyAccessed;
+[x] @Nullable support: la idea es obligar por defecto manejar con valores nonnull.
+    !! Usar no @Nullable sino @Nonnull dejando poner @Nullable a usuario
+    - NO! propiedades @Nullable deben ser marcados escrictamente
+    - si propiedad no está marcado como @Nullable puede ser uno de estos:
+        - marcado como @Initial:
+        - tipos primitivos
+        - tipos "simples" con valor por defecto definido: boxing types, String, collections
+        - valor por defecto establecido con default method()
+        - tipos @DataClass con constructor por defecto
+        - Enumerados a primer elemento
+    - se inicializa con un valor por defecto
+    - ? "lazy": al invocar getter o "eager": al construir
+    - propagar @Nullable a setters & constructors
+    [x] propagar @Nonnull a setters???
 
-Inheritance
+[ ] Secondary constructors:
+    - Se declaran en propia clase User:
+        default User of(String name) {
+            return $User.of(name, 0);
+        }
+    - En la clase $User se genera una copia:
+        default User of(String name) {
+            return User.of(name);
+        }
+
+[ ] Correct generation of nested classes
+
+[ ] ? Optional support
+
+[ ] Configuración sobre los paquetes en package-info.java que establece
+    valores por defecto sobre @DataClass de los subpaquetes de forma jerarquica
+
+[ ] Equals/HashCode/ToString generation
+
+[ ] Inheritance
     - Generate MetaInterface that extends correspondent other MetaInterfaces
     - Si el campo del objeto es una clase no abstracta, se utiliza instancias para crearlo
 
-InitBlock
-    - se ejecuta despues de constructor
+[ ] Annotation propagation:
+        @JsonProperty
+        int property()
+    Al generar bean se propaga a:
+        - field
+        - getter
+        - setter
+        - constructor parameter
+    @Annotation(@JsonProperty("name"), propagate=[field, getter, constructor])
+
+Collections
+    ? como inyectar implementaciones custom ?
+    Collections:
+        - generate setters
+            .names(T... names)
+            .names(Collection<T> names)
+            .name(T name)   <- add element to collection (depluralized)
+    Maps:
+        - generate setters
+            .entities(Pair<K,V>... entries)
+            .entitites(Map<K,V> entries)    <- detectar si el mapa es mutable, hacer copia para objetos inmutables
+            .entity(Pair<K,V> entry)        <- put element to collection (depluralized)
+            .entity(K key, V value)         <- put element to collection (depluralized)
+    - Integración con librerias (guava, vavr, etc...)
+    - Hacer propia implementación inmutable de List/Set/Map
+    - Siempre iniciar con Collections.emptyCollection()
+    - ??? @NotEmpty (1..n) control ???
+
+[ ] ??? Field validators.
+    - Based on JSR305???
+    - Custom validation???
+
 
 Metadata API
     Provide metadata api parecido a Kotlin
@@ -55,9 +96,6 @@ Metadata API
         MetaClass.$init$                    // : (A, B, C, D) -> MetaClass
 
 
-@Nullable support
-    - if not nullable initialize with a default value
-
 Al generar resolver tambien DataClassees compilados en otros paquetes:
     User:
         Contact contact();
@@ -65,22 +103,6 @@ Al generar resolver tambien DataClassees compilados en otros paquetes:
         MContact contact();     // <-- MContact se necesita de ser resuelto
     La resolución funciona dentro del paquete, pero no con las classes de otro jar que ya estan compilados.
 
-
-Collections
-    Collections:
-        - generate setters
-            .names(T... names)
-            .names(Collection<T> names)
-            .name(T name)   <- add element to collection (depluralized)
-    Maps:
-        - generate setters
-            .entities(Pair<K,V>... entries)
-            .entitites(Map<K,V> entries)    <- detectar si el mapa es mutable, hacer copia para objetos inmutables
-            .entity(Pair<K,V> entry)        <- put element to collection (depluralized)
-            .entity(K key, V value)         <- put element to collection (depluralized)
-    - Integración con librerias (guava, vavr, etc...)
-    - Hacer propia implementación inmutable de List/Set/Map
-    - Siempre iniciar con Collections.emptyCollection()
 
 Data classes (immutables)
 
@@ -109,6 +131,9 @@ Beanpath
         user.get("contact.address.street");
         $(User::contact).$(Contact::address).$(Address::street);
     - null guards: devolver nulo si alguno de
+
+InitBlock
+    - se ejecuta despues de constructor
 
 Singletons (objects)
 

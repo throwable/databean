@@ -4,18 +4,60 @@ import databean.test.model.*;
 import org.junit.Test;
 
 import java.util.function.Function;
-import java.util.function.Supplier;
+
+import static org.junit.Assert.*;
 
 public class TestUser {
-    //@Test
+    @Test
     public void testUser() {
-        final Class<User> userClass = User.class;
-        final Class<MUser> userMetaClass = MUser.class;
-        User user = null;
-        final Supplier<String> name = user::name;
-        final Function<User, String> name1 = User::name;
-        $(User::contact).$(Contact::address).$(Address::street);
+        final User pedro = $User.of()
+                .age(21)
+                .name("Pedro")
+                .contact($Contact.of()
+                        .phone("555123456")
+                        .address($Address.of()
+                                .city("Madrid")
+                                .street("Mayor")
+                        )
+                );
+        assertEquals(21, pedro.age());
+        assertEquals("Pedro", pedro.name());
+        assertEquals("555123456", pedro.contact().phone());
+        assertEquals("Madrid", pedro.contact().address().city());
+        // defaults
+        assertEquals("unknown", pedro.hobby());     // default value
+        assertTrue(pedro.active());         // primitive default value
+        // nonnull defaults
+        assertEquals("", pedro.comments());
+
+        final User silvia = pedro.ofName("Silvia");
+        assertNotSame(pedro, silvia);
+        assertEquals("Silvia", silvia.name());
+        assertEquals(21, silvia.age());
+        assertEquals("Madrid", silvia.contact().address().city());
+
+        // automatic creation of @DataClass for no-nnull properties
+        final Contact contact = $Contact.of();
+        assertNotNull(contact.address());
     }
+
+    @Test(expected = NullPointerException.class)
+    public void testSetNulls1() {
+        $User.of().age(12)
+                .name(null);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testSetNulls2() {
+        $User.of().age(12)
+                .name("Test")
+                .comments(null);
+    }
+
+
+
+
+
 
     static private <R, V> Path<V> $(Function<R, V> name) {
         return null;
@@ -29,11 +71,6 @@ public class TestUser {
 
 
     public void testMetadata() {
-        MUser.of()
-                .age(12)
-                .name("Vasya")
-                .contact(MContact.of()
-                        .phone("test")
-                );
+        //$(User::contact).$(Contact::address).$(Address::street);
     }
 }

@@ -8,5 +8,6 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.CLASS)
 public @interface DataClass {
+    boolean generateBeanAccessors() default true;
     boolean mutable() default false;
 }
