@@ -27,7 +27,7 @@ Objetivos e ideas:
     [x] propagar @Nonnull a setters???
 
 
-[ ] Secondary constructors:
+[x] Secondary constructors:
     - Se declaran en propia clase User:
         default User of(String name) {
             return $User.of(name, 0);
@@ -42,6 +42,8 @@ Objetivos e ideas:
         - whole path required:
             Date extends MUser.MBirthInfo.MDate
         - can not generate nested classes that are started with '$'
+
+[x] Cambiar interface User extends $User -> interface $User extends User
 
 [ ] ? Optional support
 
@@ -81,6 +83,16 @@ Collections
     - Hacer propia implementación inmutable de List/Set/Map
     - Siempre iniciar con Collections.emptyCollection()
     - ??? @NotEmpty (1..n) control ???
+
+[ ] Add method MUser.cast(IUser):
+    if IUser is instance of MUser
+        return MUser
+    else
+        return immutable proxy of MUser
+            - generate immutable proxy of MUser
+[ ] Add method MUser.from(IUser) that creates a new instance of MUser with all fields copied from IUser
+    !!! only make sence when a deep copy is made
+
 
 [ ] ??? Field validators.
     - Based on JSR305???

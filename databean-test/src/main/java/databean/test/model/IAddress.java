@@ -3,7 +3,7 @@ package databean.test.model;
 import databean.DataClass;
 
 @DataClass
-public interface Address extends $Address {
+public interface IAddress {
     String street();
     String city();
 }

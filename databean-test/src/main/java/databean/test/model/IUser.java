@@ -4,10 +4,9 @@ import databean.DataClass;
 import databean.Initial;
 
 import javax.annotation.Nonnull;
-import static databean.test.model.$User.*;
 
 @DataClass
-public interface User extends $User {
+public interface IUser {
     /** constructor required field */
     @Initial
     int age();
@@ -16,7 +15,7 @@ public interface User extends $User {
     @Initial @Nonnull
     String name();
 
-    Contact contact();
+    IContact contact();
 
     /** default value must be set on a constructor call */
     default String hobby() {
@@ -35,9 +34,9 @@ public interface User extends $User {
     String comments();
 
     @DataClass
-    interface BirthInfo extends $User.MBirthInfo {
+    interface IBirthInfo {
         @DataClass
-        interface Date extends $User.MBirthInfo.MDate {
+        interface IDate {
             @Initial
             int year();
             @Initial
@@ -47,10 +46,10 @@ public interface User extends $User {
         }
 
         @Initial
-        Date date();
+        IDate date();
 
         String place();
     }
 
-    BirthInfo birthInfo();
+    IBirthInfo birthInfo();
 }

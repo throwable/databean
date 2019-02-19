@@ -15,6 +15,7 @@ public class DataClassInfo {
         public final String name;
         public final boolean isBeanNameDeclaration;
         public final TypeMirror type;
+        public final boolean isDataClass;
         public final boolean isInitial;
         /* has default value set by default method */
         public final boolean hasDefaultValue;
@@ -23,11 +24,12 @@ public class DataClassInfo {
         @Nullable
         public final AnnotationMirror notNullAnnotation;
 
-        public Property(String name, boolean isBeanNameDeclaration, TypeMirror type, boolean isInitial, boolean isReadOnly,
+        public Property(String name, boolean isBeanNameDeclaration, TypeMirror type, boolean isDataClass, boolean isInitial, boolean isReadOnly,
                         boolean hasDefaultValue, boolean isComputed, @Nullable AnnotationMirror notNullAnnotation)
         {
             this.name = name;
             this.isBeanNameDeclaration = isBeanNameDeclaration;
+            this.isDataClass = isDataClass;
             this.notNullAnnotation = notNullAnnotation;
 
             /** Preconditions */
@@ -122,11 +124,20 @@ public class DataClassInfo {
             return ClassName.get(packageName(), beanClassName);
     }
 
-    /*public static String metaClassName(String className) {
-        return "M" + className;
-    }*/
+    public static String metaClassName(String className) {
+        if (className.startsWith("I") && className.length() > 2 && Character.isUpperCase(className.charAt(1)))
+            // IUser -> User
+            return className.substring(1);
+        else
+            // User -> MUser
+            return "M" + className;
+    }
 
     public static String beanClassName(String className) {
-        return className + "Bean";
+        return className.substring(1) + "Bean";
+        /*if (className.startsWith("I") && className.length() > 2 && Character.isUpperCase(className.charAt(1)))
+            // IUser -> User
+            ;
+        else return className + "Bean";*/
     }
 }

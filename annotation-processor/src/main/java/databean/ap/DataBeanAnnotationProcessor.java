@@ -9,6 +9,9 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
+import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -49,6 +52,11 @@ public class DataBeanAnnotationProcessor extends AbstractProcessor {
                 final DataClassInfo dataClassInfo = beanMetadataResolver.resolve(typeElement);
                 dataBeans.put(dataClassInfo.className(), dataClassInfo);
             } catch (Exception e) {
+                e.printStackTrace();
+                /*final StringWriter stringWriter = new StringWriter();
+                final PrintWriter printWriter = new PrintWriter(stringWriter);
+                e.printStackTrace(printWriter);
+                printWriter.close();*/
                 procEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Error processing class "
                         + typeElement.getSimpleName() + ": " + e.getMessage());
                 throw e;

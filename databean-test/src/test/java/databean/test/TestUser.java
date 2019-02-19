@@ -10,12 +10,12 @@ import static org.junit.Assert.*;
 public class TestUser {
     @Test
     public void testUser() {
-        final User pedro = $User.of()
+        final User pedro = User.of()
                 .age(21)
                 .name("Pedro")
-                .contact($Contact.of()
+                .contact(Contact.of()
                         .phone("555123456")
-                        .address($Address.of()
+                        .address(Address.of()
                                 .city("Madrid")
                                 .street("Mayor")
                         )
@@ -30,19 +30,19 @@ public class TestUser {
         // nonnull defaults
         assertEquals("", pedro.comments());
 
-        final User silvia = pedro.ofName("Silvia");
+        final IUser silvia = pedro.ofName("Silvia");
         assertNotSame(pedro, silvia);
         assertEquals("Silvia", silvia.name());
         assertEquals(21, silvia.age());
         assertEquals("Madrid", silvia.contact().address().city());
 
         // automatic creation of @DataClass for no-nnull properties
-        final Contact contact = $Contact.of();
+        final Contact contact = Contact.of();
         assertNotNull(contact.address());
 
         // nested class generation
-        pedro.birthInfo($User.MBirthInfo.of(
-                $User.MBirthInfo.MDate.of()
+        pedro.birthInfo(User.BirthInfo.of(
+                User.BirthInfo.Date.of()
                         .year(1987)
                         .month(2)
                         .day(10)
@@ -56,13 +56,13 @@ public class TestUser {
 
     @Test(expected = NullPointerException.class)
     public void testSetNulls1() {
-        $User.of().age(12)
+        User.of().age(12)
                 .name(null);
     }
 
     @Test(expected = NullPointerException.class)
     public void testSetNulls2() {
-        $User.of().age(12)
+        User.of().age(12)
                 .name("Test")
                 .comments(null);
     }
@@ -85,5 +85,23 @@ public class TestUser {
 
     public void testMetadata() {
         //$(User::contact).$(Contact::address).$(Address::street);
+    }
+
+    interface A {
+        default int a() {
+            return 0;
+        }
+    }
+    interface B extends A {
+        @Override
+        default int a() {
+            return A.super.a();
+        }
+    }
+    public static class C implements B {
+        @Override
+        public int a() {
+            return B.super.a();
+        }
     }
 }

@@ -5,9 +5,9 @@ import databean.DataClass;
 import javax.annotation.Nonnull;
 
 @DataClass
-public interface Contact extends $Contact {
+public interface IContact {
     String phone();
 
     @Nonnull
-    Address address();
+    IAddress address();
 }
