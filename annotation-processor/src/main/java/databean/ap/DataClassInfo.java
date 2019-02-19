@@ -4,6 +4,7 @@ import com.squareup.javapoet.ClassName;
 
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.TypeMirror;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -62,20 +63,25 @@ public class DataClassInfo {
         }
     }
 
-    public final String packageName;
-    public final String className;
-    public final String metaClassName;
+    @Nullable
+    public final DataClassInfo parentClass;
+    public final TypeMirror parentType;
+    public final TypeMirror classType;
+    public final String metaClassSimpleName;
     public final String beanClassName;
 
     public final Map<String, Property> properties;
     public final boolean generateBeanAccessors;
     public final boolean mutable;
+    public final List<ExecutableElement> customConstructors;
 
-    public DataClassInfo(String packageName, String className, String metaClassName, List<Property> properties,
-                         boolean generateBeanAccessors, boolean mutable) {
-        this.packageName = packageName;
-        this.className = className;
-        this.metaClassName = metaClassName;
+    public DataClassInfo(@Nullable DataClassInfo parentClass, TypeMirror enclosingType,
+                         TypeMirror classType, String metaClassSimpleName, List<Property> properties,
+                         boolean generateBeanAccessors, boolean mutable, List<ExecutableElement> customConstructors) {
+        this.parentType = enclosingType;
+        this.classType = classType;
+        this.metaClassSimpleName = metaClassSimpleName;
+        this.parentClass = parentClass;
         this.generateBeanAccessors = generateBeanAccessors;
         this.properties = new LinkedHashMap<>();
         properties.forEach(it -> {
@@ -83,7 +89,8 @@ public class DataClassInfo {
         });
         this.mutable = mutable;
         //this.metaClassName = metaClassName(className);
-        this.beanClassName = beanClassName(className);
+        this.beanClassName = beanClassName(className().simpleName());
+        this.customConstructors = customConstructors;
     }
 
 
@@ -93,15 +100,26 @@ public class DataClassInfo {
 
 
     public ClassName className() {
-        return ClassName.get(packageName, className);
+        return (ClassName) ClassName.get(classType);
     }
 
     public ClassName metaClassName() {
-        return ClassName.get(packageName, metaClassName);
+        if (parentClass != null)
+            return parentClass.metaClassName().nestedClass(metaClassSimpleName);
+        else
+            return ClassName.get(className().packageName(), metaClassSimpleName);
+    }
+
+    public String packageName() {
+        if (parentClass != null) return parentClass.packageName();
+        else return parentType.toString();
     }
 
     public ClassName beanClassName() {
-        return ClassName.get(packageName, beanClassName);
+        if (parentClass != null)
+            return parentClass.beanClassName().nestedClass(beanClassName);
+        else
+            return ClassName.get(packageName(), beanClassName);
     }
 
     /*public static String metaClassName(String className) {

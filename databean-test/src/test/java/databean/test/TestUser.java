@@ -39,6 +39,19 @@ public class TestUser {
         // automatic creation of @DataClass for no-nnull properties
         final Contact contact = $Contact.of();
         assertNotNull(contact.address());
+
+        // nested class generation
+        pedro.birthInfo($User.MBirthInfo.of(
+                $User.MBirthInfo.MDate.of()
+                        .year(1987)
+                        .month(2)
+                        .day(10)
+                )
+                .place("Coopertown")
+        );
+
+        assertEquals(1987, pedro.birthInfo().date().year());
+        assertEquals("Coopertown", pedro.birthInfo().place());
     }
 
     @Test(expected = NullPointerException.class)

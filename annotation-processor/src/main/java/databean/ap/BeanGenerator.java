@@ -4,8 +4,10 @@ import com.squareup.javapoet.*;
 import databean.MetaClass;
 
 import javax.annotation.processing.ProcessingEnvironment;
-import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -30,7 +32,10 @@ public class BeanGenerator {
 
     public void generate(DataClassInfo dataClassInfo) {
         try {
-            writeMetaClass(dataClassInfo);
+            if (dataClassInfo.parentClass == null) {
+                writeDataBean(dataClassInfo);
+                writeMetaClass(dataClassInfo);
+            }
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
@@ -39,8 +44,6 @@ public class BeanGenerator {
 
     private void writeMetaClass(DataClassInfo dataClassInfo) throws IOException
     {
-        writeDataBeanImpl(dataClassInfo);
-
         TypeSpec.Builder metaClass = TypeSpec
                 .interfaceBuilder(dataClassInfo.metaClassName())
                 //.addSuperinterface(dataClassInfo.className())
@@ -49,6 +52,14 @@ public class BeanGenerator {
                         dataClassInfo.className()))
                 .addModifiers(Modifier.PUBLIC/*, Modifier.FINAL*/);
 
+        generateMetaClass(metaClass, dataClassInfo);
+
+        final JavaFile javaFile = JavaFile.builder(dataClassInfo.packageName(), metaClass.build()).build();
+        javaFile.writeTo(procEnv.getFiler());
+    }
+
+
+    private void generateMetaClass(TypeSpec.Builder metaClass, DataClassInfo dataClassInfo) {
         generateInitializers(metaClass, dataClassInfo);
 
         for (DataClassInfo.Property property : dataClassInfo.properties.values()) {
@@ -76,12 +87,40 @@ public class BeanGenerator {
             }
         }
 
-        final JavaFile javaFile = JavaFile.builder(dataClassInfo.packageName, metaClass.build()).build();
-        javaFile.writeTo(procEnv.getFiler());
+        // copy custom constructors
+        for (ExecutableElement customConstructor : dataClassInfo.customConstructors) {
+            metaClass.addMethod(MethodSpec.methodBuilder(customConstructor.getSimpleName().toString())
+                    .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                    .returns(dataClassInfo.metaClassName())
+                    .addParameters(customConstructor.getParameters().stream()
+                            .map(ParameterSpec::get).collect(Collectors.toList()))
+                    .addStatement("return ($T) $T.of($L)", dataClassInfo.metaClassName(), dataClassInfo.className(),
+                            customConstructor.getParameters().stream()
+                                    .map(VariableElement::getSimpleName)
+                                    .collect(Collectors.joining(","))
+                            )
+                    .build());
+        }
+
+        // nested data classes
+        dataBeans.values().stream()
+                .filter(it -> it.parentClass != null &&
+                        it.parentClass.className().equals(dataClassInfo.className()))
+                .forEach(it -> {
+                    TypeSpec.Builder nestedMetaClass = TypeSpec
+                            .interfaceBuilder(it.metaClassName().simpleName())
+                            //.addSuperinterface(dataClassInfo.className())
+                            .addSuperinterface(ParameterizedTypeName.get(
+                                    ClassName.get(MetaClass.class),
+                                    it.className()))
+                            .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
+                    generateMetaClass(nestedMetaClass, it);
+                    metaClass.addType(nestedMetaClass.build());
+                });
     }
 
 
-    private void writeDataBeanImpl(DataClassInfo dataClassInfo) throws IOException
+    private void writeDataBean(DataClassInfo dataClassInfo) throws IOException
     {
         TypeSpec.Builder beanClass = TypeSpec
                 .classBuilder(dataClassInfo.beanClassName())
@@ -90,6 +129,15 @@ public class BeanGenerator {
                 .addSuperinterface(Cloneable.class)
                 .addModifiers(Modifier.PUBLIC/*, Modifier.FINAL*/);
 
+        generateDataBean(beanClass, dataClassInfo);
+
+        JavaFile.builder(dataClassInfo.parentType.toString(), beanClass.build()).build()
+                .writeTo(procEnv.getFiler());
+    }
+
+
+    private void generateDataBean(TypeSpec.Builder beanClass, DataClassInfo dataClassInfo)
+    {
         final MethodSpec.Builder constructorBuilder = MethodSpec
                 .constructorBuilder()
                 .addModifiers(Modifier.PUBLIC);
@@ -267,9 +315,22 @@ public class BeanGenerator {
             beanClass.addMethod(MethodSpec.constructorBuilder()
                     .build());
 
-        JavaFile.builder(dataClassInfo.packageName, beanClass.build()).build()
-                .writeTo(procEnv.getFiler());
+        // nested data beans
+        dataBeans.values().stream()
+                .filter(it -> it.parentClass != null &&
+                        it.parentClass.className().equals(dataClassInfo.className()))
+                .forEach(it -> {
+                    TypeSpec.Builder nestedBeanClass = TypeSpec
+                            .classBuilder(it.beanClassName())
+                            //.addSuperinterface(dataClassInfo.metaClassName())
+                            .addSuperinterface(it.className())
+                            .addSuperinterface(Cloneable.class)
+                            .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
+                    generateDataBean(nestedBeanClass, it);
+                    beanClass.addType(nestedBeanClass.build());
+                });
     }
+
 
     private void generateInitializers(TypeSpec.Builder metadataClass, DataClassInfo dataClassInfo) {
         final List<DataClassInfo.Property> initProperties = dataClassInfo.properties.values().stream()
@@ -279,7 +340,7 @@ public class BeanGenerator {
         final MethodSpec.Builder initMethodBuilder = MethodSpec
                 .methodBuilder("of")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(ClassName.get(dataClassInfo.packageName, dataClassInfo.className));
+                .returns(dataClassInfo.className());
 
         if (!initProperties.isEmpty()) {
             // staging init method

@@ -1,5 +1,6 @@
 package databean.ap;
 
+import com.squareup.javapoet.ClassName;
 import databean.BusinessMethod;
 import databean.Computed;
 import databean.DataClass;
@@ -7,10 +8,11 @@ import databean.Initial;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.*;
-import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class BeanMetadataResolver {
     private final ProcessingEnvironment procEnv;
@@ -24,22 +26,29 @@ public class BeanMetadataResolver {
      */
     public DataClassInfo resolve(TypeElement element) {
         final String className = element.getSimpleName().toString();
-        final String packageName = procEnv.getElementUtils().getPackageOf(element).getQualifiedName().toString();
+        //final String packageName = procEnv.getElementUtils().getPackageOf(element).getQualifiedName().toString();
+        final TypeMirror parentType = element.getEnclosingElement().asType();
 
         if (element.getInterfaces().isEmpty())
             throw new RuntimeException("Interface '" + className +"' must declare it's metaClass as a first element in 'extends' section: " +
                     "interface MyEntity extends MetaMyEntity...");
-        final String metaClassName = element.getInterfaces().get(0).toString();
+        final TypeMirror metaClassType = element.getInterfaces().get(0);
+        final String metaClassName = metaClassType.toString();
         if (procEnv.getElementUtils().getTypeElement(metaClassName) != null)
             throw new RuntimeException("Interface '" + className +"': unable to generate metaClass: " +
-                    "a class with name '" + metaClassName + "' already exists");
-        if (metaClassName.contains(".")) {
+                    "a class with name '" + metaClassType + "' already exists");
+        /*if (metaClassType.contains(".")) {
             throw new RuntimeException("Interface '" + className +"' must declare it's metaClass within the same package");
+        }*/
+        if (parentType.getKind() != TypeKind.PACKAGE) {
+            if (element.getEnclosingElement().getAnnotation(DataClass.class) == null)
+                throw new RuntimeException("Interface '" + className + "' can be nested only in other @DataClass");
         }
 
         final DataClass dataClassAnno = element.getAnnotation(DataClass.class);
         final boolean mutable = dataClassAnno.mutable();
         final boolean generateBeanAccessors = dataClassAnno.generateBeanAccessors();
+        final List<ExecutableElement> customConstructors = new ArrayList<>();
 
         final ArrayList<DataClassInfo.Property> properties = new ArrayList<>();
 
@@ -55,6 +64,15 @@ public class BeanMetadataResolver {
                 boolean initial = executableElement.getAnnotation(Initial.class) != null;
                 boolean readonly = computed || initial && !executableElement.getAnnotation(Initial.class).mutable();
                 boolean defaultValue = executableElement.isDefault() && !computed;
+
+
+                if (executableElement.getModifiers().contains(Modifier.STATIC)) {
+                    if ("of".equals(executableElement.getSimpleName().toString())) {
+                        // secondary constructor
+                        customConstructors.add(executableElement);
+                    }
+                    continue;
+                }
 
                 if (!executableElement.isDefault()) {
                     if (!executableElement.getParameters().isEmpty())
@@ -105,7 +123,23 @@ public class BeanMetadataResolver {
             }
         }
 
-        return new DataClassInfo(packageName, className, metaClassName, properties, generateBeanAccessors, mutable);
+        final DataClassInfo parent;
+        final String metaClassSimpleName;
+        if (parentType.getKind() != TypeKind.PACKAGE) {
+            parent = resolve((TypeElement) element.getEnclosingElement());
+            metaClassSimpleName = metaClassName.substring(metaClassName.lastIndexOf('.') + 1);
+            final ClassName parentMetaClassName = parent.metaClassName();
+            final String parentMetaClassNameNoPackage = parentMetaClassName.toString().substring(parent.packageName().length() + 1);
+            final String requiredMetaClassName = parentMetaClassNameNoPackage + "." + metaClassSimpleName;
+            if (!requiredMetaClassName.equals(metaClassName))
+                throw new RuntimeException("Dataclass '" + className + "' must extends nested metaClass: '" + requiredMetaClassName + "'");
+        } else {
+            parent = null;
+            metaClassSimpleName = metaClassName;
+        }
+
+        return new DataClassInfo(parent, parentType, element.asType(), metaClassSimpleName,
+                properties, generateBeanAccessors, mutable, customConstructors);
     }
 
 

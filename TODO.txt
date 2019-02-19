@@ -20,11 +20,12 @@ Objetivos e ideas:
         - tipos "simples" con valor por defecto definido: boxing types, String, collections
         - valor por defecto establecido con default method()
         - tipos @DataClass con constructor por defecto
-        - Enumerados a primer elemento
     - se inicializa con un valor por defecto
-    - ? "lazy": al invocar getter o "eager": al construir
+    - ? "lazy": al invocar getter o "eager": al construi
+        - Enumerados a primer elementor
     - propagar @Nullable a setters & constructors
     [x] propagar @Nonnull a setters???
+
 
 [ ] Secondary constructors:
     - Se declaran en propia clase User:
@@ -36,7 +37,11 @@ Objetivos e ideas:
             return User.of(name);
         }
 
-[ ] Correct generation of nested classes
+[x] Correct generation of nested classes
+    !!! Ugly things:
+        - whole path required:
+            Date extends MUser.MBirthInfo.MDate
+        - can not generate nested classes that are started with '$'
 
 [ ] ? Optional support
 

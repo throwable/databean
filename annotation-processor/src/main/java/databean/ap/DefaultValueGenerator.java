@@ -42,11 +42,12 @@ public class DefaultValueGenerator {
         if (typeElement.getAnnotation(DataClass.class) != null) {
             final DataClassInfo typeClassInfo = beanMetadataResolver.resolve(typeElement);
             if (typeClassInfo.hasDefaultConstructor())
+                // TODO: bad: rewrite with full name
                 return typeClassInfo.metaClassName().toString().replace("$", "$$") + ".of()";
         }
         // TODO: add Enumeration default value
         throw new IllegalArgumentException("Can not determine default value for non-nullable property " +
-                dataClassInfo.className + "." + property.name +". Please try to set it explicitly.");
+                dataClassInfo.className().simpleName() + "." + property.name +". Please try to set it explicitly.");
 
     }
 }

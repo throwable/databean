@@ -4,6 +4,7 @@ import databean.DataClass;
 import databean.Initial;
 
 import javax.annotation.Nonnull;
+import static databean.test.model.$User.*;
 
 @DataClass
 public interface User extends $User {
@@ -32,4 +33,24 @@ public interface User extends $User {
      */
     @Nonnull
     String comments();
+
+    @DataClass
+    interface BirthInfo extends $User.MBirthInfo {
+        @DataClass
+        interface Date extends $User.MBirthInfo.MDate {
+            @Initial
+            int year();
+            @Initial
+            int month();
+            @Initial
+            int day();
+        }
+
+        @Initial
+        Date date();
+
+        String place();
+    }
+
+    BirthInfo birthInfo();
 }
