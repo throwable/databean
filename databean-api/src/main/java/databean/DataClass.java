@@ -8,6 +8,13 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.CLASS)
 public @interface DataClass {
+    /**
+     * Generate bean getters/setters in implementing class
+     */
     boolean generateBeanAccessors() default true;
-    boolean mutable() default false;
+
+    /**
+     * Generated bean will extend a bean generated from first inherited data interface
+     */
+    boolean inheritFromSuperclass() default true;
 }

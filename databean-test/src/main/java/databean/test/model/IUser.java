@@ -2,17 +2,18 @@ package databean.test.model;
 
 import databean.DataClass;
 import databean.Initial;
+import databean.ReadOnly;
 
 import javax.annotation.Nonnull;
 
 @DataClass
 public interface IUser {
     /** constructor required field */
-    @Initial
+    @Initial @ReadOnly
     int age();
 
     /** constructor required field */
-    @Initial @Nonnull
+    @Initial @ReadOnly @Nonnull
     String name();
 
     IContact contact();
@@ -37,15 +38,15 @@ public interface IUser {
     interface IBirthInfo {
         @DataClass
         interface IDate {
-            @Initial
+            @Initial @ReadOnly
             int year();
-            @Initial
+            @Initial @ReadOnly
             int month();
-            @Initial
+            @Initial @ReadOnly
             int day();
         }
 
-        @Initial
+        @Initial @ReadOnly
         IDate date();
 
         String place();

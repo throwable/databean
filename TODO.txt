@@ -45,16 +45,51 @@ Objetivos e ideas:
 
 [x] Cambiar interface User extends $User -> interface $User extends User
 
-[ ] ? Optional support
+[ ] Inheritance
+    Consolidation rules: for the properties with the same name between multiple interface inheritance
+        - select resulting property with the most narrow type
+        - check if all property types are compatible (one must be subinterface of another)
+        - if any of the properties has @Initial annotation:
+            - If resulting property or any of properties with the same type has default value
+                inherit the default value to the resulting property
+            - In other case set resulting property as @Initial
+        - if the resulting property is readonly but any another property is mutable
+            set the resulting property as mutable
+    Overriding rules: for the property definitions overridden in subinterface
+        - check if property type is the same or more narrow
+        - if superproperty is initial check if property has @Initial or default value defined
+        - if superproperty is mutable but property is marked as readonly:
+            On bean generation:
+            - en mutable accessor (property(value)) saltar una excepción (UnmodifiableException)
+            - en setter (setProperty(value)) no hacer nada (empty)
+            - generar clone-setter: ofProperty(value)
+    [ ] Add @Fixed annotation: fixed fields are read-only, must define their default values that will not be changed
+        by ofXXX() methods
+    [ ] Relax: DataClass property definition error IPet.age: error in property definition: age: read-only property must be computed, initial or with default value
+        Allow undefined readOnly values with nulls or defaults
+    [ ] BeanGenerator.generateBean(): check on statement creation if there is used property.getterName() instead of property.name
+        to access properties.
+
+    [x] BUG: DogBean defines age field but it is readOnly
+
+    [ ] Check: all overridden properties with a default value must also provide default value
+
+    [ ] Tests:
+        [ ] superclass: readonly property -> subclass: mutable property
+        [-] default value is defined inside another interface that not superclass of current bean
+            !! not allowed! prohibited multiple inheritance of abstract and default methods.
+            Must be resolved explicitly.
+
+
+[ ] Default setter
 
 [ ] Configuración sobre los paquetes en package-info.java que establece
     valores por defecto sobre @DataClass de los subpaquetes de forma jerarquica
+    [ ] Configuración de propiedades: utilizar @Property(name="")
 
 [ ] Equals/HashCode/ToString generation
 
-[ ] Inheritance
-    - Generate MetaInterface that extends correspondent other MetaInterfaces
-    - Si el campo del objeto es una clase no abstracta, se utiliza instancias para crearlo
+[ ] ? Optional support
 
 [ ] Annotation propagation:
         @JsonProperty

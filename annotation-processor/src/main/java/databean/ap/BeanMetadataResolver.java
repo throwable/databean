@@ -1,61 +1,98 @@
 package databean.ap;
 
-import com.squareup.javapoet.ClassName;
-import databean.BusinessMethod;
-import databean.Computed;
-import databean.DataClass;
-import databean.Initial;
+import databean.*;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.*;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class BeanMetadataResolver {
     private final ProcessingEnvironment procEnv;
+
+    private final Map<String, DataClassInfo> cache = new HashMap<>();
 
     public BeanMetadataResolver(ProcessingEnvironment procEnv) {
         this.procEnv = procEnv;
     }
 
-    /**
-     * TODO: cache resolved results
-     */
-    public DataClassInfo resolve(TypeElement element) {
-        final String className = element.getSimpleName().toString();
-        //final String packageName = procEnv.getElementUtils().getPackageOf(element).getQualifiedName().toString();
-        final TypeMirror parentType = element.getEnclosingElement().asType();
 
-        /*if (element.getInterfaces().isEmpty())
-            throw new RuntimeException("Interface '" + className +"' must declare it's metaClass as a first element in 'extends' section: " +
-                    "interface MyEntity extends MetaMyEntity...");
-        final TypeMirror metaClassType = element.getInterfaces().get(0);*/
-        //final String metaClassName = metaClassType.toString();
-        /*if (procEnv.getElementUtils().getTypeElement(metaClassName) != null)
-            throw new RuntimeException("Interface '" + className +"': unable to generate metaClass: " +
-                    "a class with name '" + metaClassType + "' already exists");*/
-        /*if (metaClassType.contains(".")) {
-            throw new RuntimeException("Interface '" + className +"' must declare it's metaClass within the same package");
-        }*/
+    public DataClassInfo resolve(TypeElement element)
+    {
+        DataClassInfo dataClassInfo = cache.get(element.getQualifiedName().toString());
+        if (dataClassInfo != null)
+            return dataClassInfo;
+
+        final String className = element.getSimpleName().toString();
+        final TypeMirror enclosingType = element.getEnclosingElement().asType();
+
         final String metaClassName = DataClassInfo.metaClassName(className);
 
-        if (parentType.getKind() != TypeKind.PACKAGE) {
+        if (enclosingType.getKind() != TypeKind.PACKAGE) {
             if (element.getEnclosingElement().getAnnotation(DataClass.class) == null)
                 throw new RuntimeException("Interface '" + className + "' can be nested only in other @DataClass");
         }
 
         final DataClass dataClassAnno = element.getAnnotation(DataClass.class);
-        final boolean mutable = dataClassAnno.mutable();
         final boolean generateBeanAccessors = dataClassAnno.generateBeanAccessors();
         final List<ExecutableElement> customConstructors = new ArrayList<>();
 
-        final ArrayList<DataClassInfo.Property> properties = new ArrayList<>();
+        // Properties with the same name are allowed but must have compatible types.
+        // The most narrow type is choosed as a resulting property's type
+        final List<DataClassInfo> superClasses = new ArrayList<>();
+
+        for (TypeMirror superInterface : element.getInterfaces()) {
+            final Element superInterfaceEl = procEnv.getTypeUtils().asElement(superInterface);
+            if (superInterfaceEl.getAnnotation(DataClass.class) != null) {
+                final DataClassInfo superDataClass = resolve((TypeElement) superInterfaceEl);
+                superClasses.add(superDataClass);
+            }
+        }
+
+        final List<DataClassInfo.Property> properties = resolveElementProperties(element);
 
         for (Element enclosedElement : element.getEnclosedElements()) {
             if (enclosedElement instanceof ExecutableElement) {
                 final ExecutableElement executableElement = (ExecutableElement) enclosedElement;
+                if (executableElement.getModifiers().contains(Modifier.STATIC)) {
+                    if ("of".equals(executableElement.getSimpleName().toString())) {
+                        // secondary constructor
+                        customConstructors.add(executableElement);
+                    }
+                }
+            }
+        }
+
+        final DataClassInfo enclosingClass;
+        //final String metaClassSimpleName;
+        if (enclosingType.getKind() != TypeKind.PACKAGE) {
+            enclosingClass = resolve((TypeElement) element.getEnclosingElement());
+        } else {
+            enclosingClass = null;
+        }
+
+        dataClassInfo = new DataClassInfo(enclosingClass, enclosingType, element.asType(), metaClassName,
+                properties, generateBeanAccessors, dataClassAnno.inheritFromSuperclass(), customConstructors, superClasses);
+        cache.put(element.getQualifiedName().toString(), dataClassInfo);
+        return dataClassInfo;
+    }
+
+
+
+
+    private List<DataClassInfo.Property> resolveElementProperties(Element element) {
+        final ArrayList<DataClassInfo.Property> properties = new ArrayList<>();
+        final String className = element.getSimpleName().toString();
+
+        for (Element enclosedElement : element.getEnclosedElements()) {
+            if (enclosedElement instanceof ExecutableElement) {
+                final ExecutableElement executableElement = (ExecutableElement) enclosedElement;
+                if (executableElement.getModifiers().contains(Modifier.STATIC))
+                    continue;
                 final String methodName = executableElement.getSimpleName().toString();
                 final TypeMirror returnType = executableElement.getReturnType();
                 final String propertyName = getPropertyNameFromDeclaration(methodName, returnType);
@@ -63,17 +100,11 @@ public class BeanMetadataResolver {
 
                 boolean computed = executableElement.getAnnotation(Computed.class) != null;
                 boolean initial = executableElement.getAnnotation(Initial.class) != null;
-                boolean readonly = computed || initial && !executableElement.getAnnotation(Initial.class).mutable();
-                boolean defaultValue = executableElement.isDefault() && !computed;
-
-
-                if (executableElement.getModifiers().contains(Modifier.STATIC)) {
-                    if ("of".equals(executableElement.getSimpleName().toString())) {
-                        // secondary constructor
-                        customConstructors.add(executableElement);
-                    }
-                    continue;
-                }
+                boolean readonly = computed || executableElement.getAnnotation(ReadOnly.class) != null;
+                String defaultValueExpression = executableElement.getAnnotation(DefaultValue.class) != null ?
+                        executableElement.getAnnotation(DefaultValue.class).value() : "";
+                boolean hasDefaultValue = (executableElement.isDefault() || !defaultValueExpression.isEmpty())
+                        && !computed;
 
                 if (!executableElement.isDefault()) {
                     if (!executableElement.getParameters().isEmpty())
@@ -87,6 +118,10 @@ public class BeanMetadataResolver {
                                 className + "." + propertyName);
                 } else {
                     // default method: detect if it is a property or a business method
+                    if (!defaultValueExpression.isEmpty())
+                        throw new RuntimeException("Dataclass property must declare it's default value either " +
+                                "via default methos or @DefaultValue anotation but not both: " +
+                                className + "." + propertyName);
                     if (!executableElement.getParameters().isEmpty() ||
                             !executableElement.getThrownTypes().isEmpty() ||
                             "void".equals(executableElement.getReturnType().toString()) ||
@@ -96,17 +131,6 @@ public class BeanMetadataResolver {
                         continue;
                     }
                 }
-
-                /*final List<? extends AnnotationMirror> annotationMirrors = executableElement.getAnnotationMirrors();
-                if (!annotationMirrors.isEmpty()) {
-                    final AnnotationMirror annotationMirror = annotationMirrors.get(0);
-                    final DeclaredType annotationType = annotationMirror.getAnnotationType();
-                    final Element element1 = annotationType.asElement();
-                    final Name simpleName = element1.getSimpleName();
-                    final ElementKind kind = element1.getKind();
-                    final TypeMirror enclosingType = annotationType.getEnclosingType();
-                    final String name = enclosingType.getKind().name();
-                }*/
 
                 AnnotationMirror notNullAnnotation = executableElement.getAnnotationMirrors().stream()
                         .filter(it -> {
@@ -121,30 +145,14 @@ public class BeanMetadataResolver {
 
                 try {
                     properties.add(new DataClassInfo.Property(propertyName, beanNameDeclaration, returnType, isDataClass, initial, readonly,
-                            defaultValue, computed, notNullAnnotation));
+                            hasDefaultValue, defaultValueExpression.isEmpty() ? null : defaultValueExpression,
+                            computed, notNullAnnotation));
                 } catch (IllegalArgumentException e) {
-                    throw new RuntimeException("DataClass property definition error: " + e.getMessage());
+                    throw new RuntimeException("DataClass property definition error " + className + "." + propertyName + ": " + e.getMessage(), e);
                 }
             }
         }
-
-        final DataClassInfo parent;
-        //final String metaClassSimpleName;
-        if (parentType.getKind() != TypeKind.PACKAGE) {
-            parent = resolve((TypeElement) element.getEnclosingElement());
-            /*metaClassSimpleName = metaClassName.substring(metaClassName.lastIndexOf('.') + 1);
-            final ClassName parentMetaClassName = parent.metaClassName();
-            final String parentMetaClassNameNoPackage = parentMetaClassName.toString().substring(parent.packageName().length() + 1);
-            final String requiredMetaClassName = parentMetaClassNameNoPackage + "." + metaClassSimpleName;
-            if (!requiredMetaClassName.equals(metaClassName))
-                throw new RuntimeException("Dataclass '" + className + "' must extends nested metaClass: '" + requiredMetaClassName + "'");*/
-        } else {
-            parent = null;
-            //metaClassSimpleName = metaClassName;
-        }
-
-        return new DataClassInfo(parent, parentType, element.asType(), metaClassName,
-                properties, generateBeanAccessors, mutable, customConstructors);
+        return properties;
     }
 
 
