@@ -1,12 +1,14 @@
 package databean.ap;
 
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.TypeName;
 
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.TypeMirror;
 import java.util.List;
+import java.util.Objects;
 
 public class DataClassInfo {
     public static class Property {
@@ -21,16 +23,18 @@ public class DataClassInfo {
         public final String defaultValueExpression;
         public final boolean isComputed;
         public final boolean isReadOnly;
+        public final boolean isFixed;
         @Nullable
         public final AnnotationMirror notNullAnnotation;
 
         public Property(String name, boolean isBeanNameDeclaration, TypeMirror type, boolean isDataClass, boolean isInitial, boolean isReadOnly,
-                        boolean hasDefaultValue, @Nullable String defaultValueExpression, boolean isComputed, @Nullable AnnotationMirror notNullAnnotation)
+                        boolean hasDefaultValue, @Nullable String defaultValueExpression, boolean isComputed, boolean isFixed, @Nullable AnnotationMirror notNullAnnotation)
         {
             this.name = name;
             this.isBeanNameDeclaration = isBeanNameDeclaration;
             this.isDataClass = isDataClass;
             this.defaultValueExpression = defaultValueExpression;
+            this.isFixed = isFixed;
             this.notNullAnnotation = notNullAnnotation;
 
             /*   Preconditions */
@@ -44,9 +48,13 @@ public class DataClassInfo {
             if (isComputed) {
                 check(isReadOnly, true, "computed property are read only");
             }
-            if (isReadOnly) {
+            /*if (isReadOnly) {
                 check(isComputed || hasDefaultValue || isInitial, true,
-                        "read-only property must be computed, initial or with default value");
+                        "read-only property must be initial or with default value defined");
+            }*/
+            if (isFixed) {
+                check(isReadOnly, true, "fixed property must be read-only");
+                check(isInitial, false, "fixed property must not be read-only");
             }
 
             this.type = type;
@@ -61,9 +69,36 @@ public class DataClassInfo {
                 throw new IllegalArgumentException("error in property definition: " + name + ": " + message);
         }
 
-        public String defaultValueGetterName() {
-            return isBeanNameDeclaration ? BeanGenerator.getterName(type, name) : name;
+        public TypeName typeName() {
+            String rawString = type.toString();
+            if (type.getKind().isPrimitive())
+                return TypeName.get(type);
+            int dotPosition = rawString.lastIndexOf(".");
+            String packageName = rawString.substring(0, dotPosition);
+            String className = rawString.substring(dotPosition + 1);
+            return ClassName.get(packageName, className);
         }
+
+        public String getterName() {
+            return (type.getKind().isPrimitive() && "boolean".equals(type.toString()) ?
+                    "is" : "get") + BeanGenerator.capitalize(name);
+        }
+
+        public String setterName() {
+            return "set" + BeanGenerator.capitalize(name);
+        }
+
+        public String writeAccessorName() {
+            return isBeanNameDeclaration ? setterName() : name;
+        }
+
+        public String readAccessorName() {
+            return isBeanNameDeclaration ? getterName() : name;
+        }
+
+        /*public String defaultValueGetterName() {
+            return isBeanNameDeclaration ? getterName() : name;
+        }*/
 
         public boolean declaredWithDefaultMethod() {
             return isComputed || hasDefaultValue && (defaultValueExpression == null);
@@ -71,17 +106,17 @@ public class DataClassInfo {
 
         public Property withDefaults(boolean hasDefaultValue, String defaultValueExpression) {
             return new Property(name, isBeanNameDeclaration, type, isDataClass, isInitial, isReadOnly,
-                    hasDefaultValue, defaultValueExpression, isComputed, notNullAnnotation);
+                    hasDefaultValue, defaultValueExpression, isComputed, isFixed, notNullAnnotation);
         }
 
         public Property withInitial(boolean isInitial) {
             return new Property(name, isBeanNameDeclaration, type, isDataClass, isInitial, isReadOnly,
-                    hasDefaultValue, defaultValueExpression, isComputed, notNullAnnotation);
+                    hasDefaultValue, defaultValueExpression, isComputed, isFixed, notNullAnnotation);
         }
 
         public Property withReadOnly(boolean isReadOnly) {
             return new Property(name, isBeanNameDeclaration, type, isDataClass, isInitial, isReadOnly,
-                    hasDefaultValue, defaultValueExpression, isComputed, notNullAnnotation);
+                    hasDefaultValue, defaultValueExpression, isComputed, isFixed, notNullAnnotation);
         }
 
         @Override
@@ -97,11 +132,12 @@ public class DataClassInfo {
             if (hasDefaultValue != property.hasDefaultValue) return false;
             if (isComputed != property.isComputed) return false;
             if (isReadOnly != property.isReadOnly) return false;
+            if (isFixed != property.isFixed) return false;
             if (!name.equals(property.name)) return false;
             if (!type.equals(property.type)) return false;
-            if (defaultValueExpression != null ? !defaultValueExpression.equals(property.defaultValueExpression) : property.defaultValueExpression != null)
+            if (!Objects.equals(defaultValueExpression, property.defaultValueExpression))
                 return false;
-            return notNullAnnotation != null ? notNullAnnotation.equals(property.notNullAnnotation) : property.notNullAnnotation == null;
+            return Objects.equals(notNullAnnotation, property.notNullAnnotation);
         }
 
         @Override
@@ -115,6 +151,7 @@ public class DataClassInfo {
             result = 31 * result + (defaultValueExpression != null ? defaultValueExpression.hashCode() : 0);
             result = 31 * result + (isComputed ? 1 : 0);
             result = 31 * result + (isReadOnly ? 1 : 0);
+            result = 31 * result + (isFixed ? 1 : 0);
             result = 31 * result + (notNullAnnotation != null ? notNullAnnotation.hashCode() : 0);
             return result;
         }

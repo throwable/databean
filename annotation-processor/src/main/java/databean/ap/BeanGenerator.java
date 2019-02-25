@@ -81,7 +81,7 @@ public class BeanGenerator {
             if (property.isDataClass)
                 typeName = requireNonNull(resolveDataClass(property.type)).metaClassName();
             else
-                typeName = getTypeName(property.type);
+                typeName = property.typeName();
 
             List<AnnotationSpec> typeAnnotations = new ArrayList<>();
             if (property.notNullAnnotation != null)
@@ -90,27 +90,16 @@ public class BeanGenerator {
             final ParameterSpec.Builder paramSpec = ParameterSpec.builder(typeName, property.name);
             paramSpec.addAnnotations(typeAnnotations);
 
-            /*if (dataClassInfo.className().simpleName().equals("ICat"))
-                Math.random();*/
-            // if property inherited from superclass and have the same type
-
-            /*final boolean overridesPropertyOfSameType = propertyInfo.beanSuperclassProperty != null &&
-                    procEnv.getTypeUtils().isSameType(property.type, propertyInfo.beanSuperclassProperty.type);
-            final boolean redefinitionRequired = propertyInfo.beanSuperclassProperty == null || !overridesPropertyOfSameType || propertyInfo.readOnlyOverridesMutable;*/
-
-            final boolean overridesPropertyOfSameType = false;
-            final boolean redefinitionRequired = true;
-
-            if (redefinitionRequired) {
-                if (!property.isReadOnly) {
-                    metaClass.addMethod(MethodSpec
-                            .methodBuilder(property.isBeanNameDeclaration ? setterName(property.name) : property.name)
-                            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-                            .returns(dataClassInfo.metaClassName())
-                            .addParameter(paramSpec.build())
-                            .build());
-                } else {
-                    // native copy-setter
+            if (!property.isReadOnly) {
+                metaClass.addMethod(MethodSpec
+                        .methodBuilder(property.writeAccessorName())
+                        .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                        .returns(dataClassInfo.metaClassName())
+                        .addParameter(paramSpec.build())
+                        .build());
+            } else {
+                // native copy-setter: ofXXX()
+                if (!property.isFixed) {
                     metaClass.addMethod(MethodSpec
                             .methodBuilder("of" + capitalize(property.name))
                             .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
@@ -121,15 +110,13 @@ public class BeanGenerator {
             }
 
             // substitute dataClass getter return value by metaClass
-            final String getterName = property.isBeanNameDeclaration ? getterName(property.type, property.name) : property.name;
-
             if (property.isDataClass) {
                 if (property.hasDefaultValue) {
                     // chaining call to A.super.getter()
                     CodeBlock defaultBody;
                     if (property.defaultValueExpression == null) {
                         defaultBody = CodeBlock.builder()
-                                .addStatement("return $T.super.$N()", dataClassInfo.className(), property.defaultValueGetterName())
+                                .addStatement("return $T.super.$N()", dataClassInfo.className(), property.readAccessorName())
                                 .build();
                     } else {
                         defaultBody = CodeBlock.builder()
@@ -137,7 +124,7 @@ public class BeanGenerator {
                                 .build();
                     }
                     metaClass.addMethod(MethodSpec
-                            .methodBuilder(getterName)
+                            .methodBuilder(property.readAccessorName())
                             .returns(typeName)
                             .addModifiers(Modifier.PUBLIC, Modifier.DEFAULT)
                             .addAnnotation(Override.class)
@@ -146,15 +133,13 @@ public class BeanGenerator {
                             .build());
                 }
                 else {
-                    if (redefinitionRequired) {
-                        metaClass.addMethod(MethodSpec
-                                .methodBuilder(getterName)
-                                .returns(typeName)
-                                .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-                                .addAnnotation(Override.class)
-                                .addAnnotations(typeAnnotations)
-                                .build());
-                    }
+                    metaClass.addMethod(MethodSpec
+                            .methodBuilder(property.readAccessorName())
+                            .returns(typeName)
+                            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                            .addAnnotation(Override.class)
+                            .addAnnotations(typeAnnotations)
+                            .build());
                 }
             }
             else if (property.hasDefaultValue) {
@@ -163,7 +148,7 @@ public class BeanGenerator {
                 CodeBlock defaultBody;
                 if (property.defaultValueExpression == null) {
                     defaultBody = CodeBlock.builder()
-                        .addStatement("return $T.super.$N()", dataClassInfo.className(), property.defaultValueGetterName())
+                        .addStatement("return $T.super.$N()", dataClassInfo.className(), property.readAccessorName())
                         .build();
                 } else {
                     defaultBody = CodeBlock.builder()
@@ -171,7 +156,7 @@ public class BeanGenerator {
                             .build();
                 }
                 metaClass.addMethod(MethodSpec
-                        .methodBuilder(getterName)
+                        .methodBuilder(property.readAccessorName())
                         .returns(typeName)
                         .addModifiers(Modifier.PUBLIC, Modifier.DEFAULT)
                         .addAnnotation(Override.class)
@@ -255,7 +240,7 @@ public class BeanGenerator {
             if (property.isDataClass)
                 typeName = requireNonNull(resolveDataClass(property.type)).metaClassName();
             else
-                typeName = getTypeName(property.type);
+                typeName = property.typeName();
 
             final List<AnnotationSpec> valueAnnotations = new ArrayList<>();
             if (property.notNullAnnotation != null) {
@@ -272,17 +257,17 @@ public class BeanGenerator {
                     if (!property.isBeanNameDeclaration) {
                         // add simple accessor as proxy
                         beanClass.addMethod(MethodSpec
-                                .methodBuilder(property.name)
+                                .methodBuilder(property.readAccessorName())
                                 .addModifiers(Modifier.PUBLIC)
                                 .addAnnotation(Override.class)
                                 .addAnnotations(valueAnnotations)
-                                .addStatement("return $N()", getterName(property.type, property.name))
+                                .addStatement("return $N()", property.getterName())
                                 .returns(typeName)
                                 .build());
                     }
                     // add bean getter as native accessor
                     beanClass.addMethod(MethodSpec
-                            .methodBuilder(getterName(property.type, property.name))
+                            .methodBuilder(property.getterName())
                             .addModifiers(Modifier.PUBLIC)
                             //.addStatement(generateGetterBody(property))
                             .addAnnotations(valueAnnotations)
@@ -293,7 +278,7 @@ public class BeanGenerator {
                     if (property.isBeanNameDeclaration) {
                         // add bean getter as native accessor
                         beanClass.addMethod(MethodSpec
-                                .methodBuilder(getterName(property.type, property.name))
+                                .methodBuilder(property.readAccessorName())
                                 .addModifiers(Modifier.PUBLIC)
                                 //.addStatement("return this.$N", property.name)
                                 .addCode(generateGetterBody(dataClassInfo, propertyInfo))
@@ -303,7 +288,7 @@ public class BeanGenerator {
                     } else {
                         // add simple accessor as native accessor
                         beanClass.addMethod(MethodSpec
-                                .methodBuilder(property.name)
+                                .methodBuilder(property.readAccessorName())
                                 .addModifiers(Modifier.PUBLIC)
                                 .addAnnotation(Override.class)
                                 .addAnnotations(valueAnnotations)
@@ -321,8 +306,8 @@ public class BeanGenerator {
             final ParameterSpec parameterSpec = ParameterSpec.builder(typeName, property.name)
                     .addAnnotations(valueAnnotations).build();
 
-            if (dataClassInfo.className().simpleName().equals("ICat"))
-                Math.random();
+            /*if (dataClassInfo.className().simpleName().equals("ICat"))
+                Math.random();*/
 
             // Field
             if (propertyInfo.beanSuperclassProperty == null)
@@ -343,18 +328,19 @@ public class BeanGenerator {
                     if (!property.isReadOnly && !property.isBeanNameDeclaration) {
                         // add simple accessor as proxy
                         beanClass.addMethod(MethodSpec
-                                .methodBuilder(property.name)
+                                .methodBuilder(property.writeAccessorName())
                                 .addAnnotation(Override.class)
                                 .addModifiers(Modifier.PUBLIC)
                                 .returns(dataClassInfo.metaClassName())
                                 .addParameter(parameterSpec)
-                                .addCode(generateSetterBody(dataClassInfo, propertyInfo))
+                                //.addCode(generateSetterBody(dataClassInfo, propertyInfo))
+                                .addStatement("$N($N)", property.setterName(), property.name)
                                 .addStatement("return this")
                                 .build());
                     }
                     // add bean setter as native accessor
                     beanClass.addMethod(MethodSpec
-                            .methodBuilder(setterName(property.name))
+                            .methodBuilder(property.setterName())
                             .addModifiers(property.isReadOnly && !propertyInfo.readOnlyOverridesMutable ?
                                     Modifier.PROTECTED : Modifier.PUBLIC)
                             //.addParameter(getTypeName(property.type), property.name)
@@ -365,7 +351,7 @@ public class BeanGenerator {
                     if (property.isBeanNameDeclaration) {
                         // add bean setter as native accessor
                         beanClass.addMethod(MethodSpec
-                                .methodBuilder(setterName(property.name))
+                                .methodBuilder(property.setterName())
                                 .addModifiers(property.isReadOnly && !propertyInfo.readOnlyOverridesMutable ?
                                         Modifier.PROTECTED : Modifier.PUBLIC)
                                 .addParameter(parameterSpec)
@@ -375,7 +361,7 @@ public class BeanGenerator {
                         if (!property.isReadOnly) {
                             // add simple accessor as native accessor
                             beanClass.addMethod(MethodSpec
-                                    .methodBuilder(property.name)
+                                    .methodBuilder(property.writeAccessorName())
                                     .addAnnotation(Override.class)
                                     .addModifiers(Modifier.PUBLIC)
                                     .returns(dataClassInfo.metaClassName())
@@ -390,29 +376,57 @@ public class BeanGenerator {
                 // native copy-setter
                 if (property.isReadOnly) {
                     //final boolean hasBeanSetter = property.isBeanNameDeclaration || dataClassInfo.generateBeanAccessors;
-                    beanClass.addMethod(MethodSpec
-                            .methodBuilder("of" + capitalize(property.name))
-                            .addAnnotation(Override.class)
-                            .addModifiers(Modifier.PUBLIC)
-                            .returns(dataClassInfo.metaClassName())
-                            .addParameter(parameterSpec)
-                            .addCode(property.notNullAnnotation != null ?
-                                    genCheckNotNull(dataClassInfo, property.name) :
-                                    CodeBlock.builder().build())
-                            .beginControlFlow("try")
-                            .addStatement("$T cloned = ($T) clone()", dataClassInfo.beanClassName(), dataClassInfo.beanClassName())
-                            /*.addStatement(hasBeanSetter ?
-                                    "cloned." + setterName(property.name) + "($N)" :
-                                    "cloned." + property.name + " = $N", property.name
-                            )*/
-                            // direct field access because setter may be masked with read-only precondition
-                            .addStatement("cloned.$N = $N", property.name, property.name)
-                            .addStatement("return cloned")
-                            .nextControlFlow("catch (CloneNotSupportedException e)")
-                            //.endControlFlow()
-                            .addStatement("throw new RuntimeException(e)")
-                            .endControlFlow()
-                            .build());
+                    if (!property.isFixed) {
+                        // copy-and-set
+                        beanClass.addMethod(MethodSpec
+                                .methodBuilder("of" + capitalize(property.name))
+                                .addAnnotation(Override.class)
+                                .addModifiers(Modifier.PUBLIC)
+                                .returns(dataClassInfo.metaClassName())
+                                .addParameter(parameterSpec)
+                                .addCode(property.notNullAnnotation != null ?
+                                        genCheckNotNull(dataClassInfo, property.name) :
+                                        CodeBlock.builder().build())
+                                .beginControlFlow("try")
+                                .addStatement("$T cloned = ($T) clone()", dataClassInfo.beanClassName(), dataClassInfo.beanClassName())
+                                /*.addStatement(hasBeanSetter ?
+                                        "cloned." + setterName(property.name) + "($N)" :
+                                        "cloned." + property.name + " = $N", property.name
+                                )*/
+                                // direct field access because setter may be masked with read-only precondition
+                                .addStatement("cloned.$N = $N", property.name, property.name)
+                                .addStatement("return cloned")
+                                .nextControlFlow("catch (CloneNotSupportedException e)")
+                                //.endControlFlow()
+                                .addStatement("throw new RuntimeException(e)")
+                                .endControlFlow()
+                                .build());
+                    }
+                    else {
+                        /*
+                        One of superMetaClasses has the same property defined as @ReadOnly (but not @Fixed) =>
+                        it also defines ofXXX() method. On a @Fixed property we must mask this method to not to
+                        allow the modification of the value of this property.
+                         */
+                        boolean superTypeHasOfXXXDefined = false;
+                        for (DataClassInfo superClass : dataClassInfo.superClasses) {
+                            if (superClass.properties.stream()
+                                    .anyMatch(it -> it.name.equals(property.name) && !it.isFixed && it.isReadOnly)) {
+                                superTypeHasOfXXXDefined = true;
+                                break;
+                            }
+                        }
+                        if (superTypeHasOfXXXDefined) {
+                            beanClass.addMethod(MethodSpec
+                                    .methodBuilder("of" + capitalize(property.name))
+                                    .addModifiers(Modifier.PUBLIC)
+                                    .addAnnotation(Override.class)
+                                    .returns(dataClassInfo.metaClassName())
+                                    .addParameter(parameterSpec)
+                                    .addStatement("throw new UnsupportedOperationException($S)", "attempt to change fixed property")
+                                    .build());
+                        }
+                    }
                 }
             }
         }
@@ -435,7 +449,7 @@ public class BeanGenerator {
             if (property.hasDefaultValue) {
                 //if (property.defaultValueExpression == null) {
                 $init.addStatement("this.$N = $T.super.$N()", property.name,
-                        dataClassInfo.metaClassName(), property.defaultValueGetterName());
+                        dataClassInfo.metaClassName(), property.readAccessorName());
                 /*} else {
                     $init.addStatement("this.$N = $L", property.name, property.defaultValueExpression);
                 }*/
@@ -506,7 +520,7 @@ public class BeanGenerator {
                 if (initProperty.isDataClass)
                     typeName = requireNonNull(resolveDataClass(initProperty.type)).metaClassName();
                 else
-                    typeName = getTypeName(initProperty.type);
+                    typeName = initProperty.typeName();
 
                 // of(...) method parameters
                 initMethodBuilder.addParameter(ParameterSpec.builder(typeName, initProperty.name)
@@ -527,7 +541,7 @@ public class BeanGenerator {
                         .addModifiers(Modifier.PUBLIC)
                         .addParameter(ParameterSpec.builder(typeName, initProperty.name)
                                 .addAnnotations(valueAnnotations).build())
-                        .addStatement("bean." + setterName(initProperty.name) + "($N)", initProperty.name)
+                        .addStatement("bean." + initProperty.setterName() + "($N)", initProperty.name)
                         .returns(nextProperty != null ? ClassName.get("", "$" + nextProperty.name) :
                                 dataClassInfo.metaClassName());
                 if (nextProperty != null) {
@@ -559,9 +573,9 @@ public class BeanGenerator {
         final CodeBlock.Builder codeBlock = CodeBlock.builder();
         if (propertyInfo.beanSuperclassProperty != null) {
             if (!procEnv.getTypeUtils().isSameType(property.type, propertyInfo.beanSuperclassProperty.type))
-                codeBlock.addStatement("return ($T) super.$N()", property.type, property.name);
+                codeBlock.addStatement("return ($T) super.$N()", property.type, property.getterName());
             else
-                codeBlock.addStatement("return super.$N()", property.type, property.name);
+                codeBlock.addStatement("return super.$N()", property.type, property.getterName());
         } else {
             codeBlock.addStatement("return this.$N", property.name);
         }
@@ -580,7 +594,7 @@ public class BeanGenerator {
             else {
                 if (property.notNullAnnotation != null)
                     builder.add(genCheckNotNull(dataClassInfo, property.name));
-                builder.addStatement("super.$N($N)", property.name, property.name);
+                builder.addStatement("super.$N($N)", property.setterName(), property.name);
             }
 
         } else {
@@ -598,26 +612,7 @@ public class BeanGenerator {
                 .build();
     }
 
-    private static TypeName getTypeName(TypeMirror typeMirror) {
-        String rawString = typeMirror.toString();
-        if (typeMirror.getKind().isPrimitive())
-            return TypeName.get(typeMirror);
-        int dotPosition = rawString.lastIndexOf(".");
-        String packageName = rawString.substring(0, dotPosition);
-        String className = rawString.substring(dotPosition + 1);
-        return ClassName.get(packageName, className);
-    }
-
-    public static String getterName(TypeMirror typeMirror, String name) {
-        return (typeMirror.getKind().isPrimitive() && "boolean".equals(typeMirror.toString()) ?
-                "is" : "get") + capitalize(name);
-    }
-
-    private static String setterName(String name) {
-        return "set" + capitalize(name);
-    }
-
-    private static String capitalize(String name) {
+    public static String capitalize(String name) {
         return Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
 

@@ -1,27 +1,25 @@
 package databean.test.model2;
 
 import databean.DataClass;
+import databean.DefaultValue;
+import databean.Fixed;
 import databean.ReadOnly;
 
 import javax.annotation.Nonnull;
 
 @DataClass
 public interface IFelix extends ICat {
-    @ReadOnly
-    @Nonnull
-    @Override
+    @Fixed @Nonnull @Override
     default String name() {
         return "Felix";
     }
 
-    @ReadOnly
-    @Override
+    @ReadOnly @Override
     default String sound() {
         return "Murrraaayy";
     }
 
-    @ReadOnly
-    @Override
+    @ReadOnly @Override
     default double weight() {
         return 5.5;
     }
@@ -31,4 +29,10 @@ public interface IFelix extends ICat {
     default Integer age() {
         return 5;
     }
+
+    @Override @DefaultValue("true")
+    boolean cutie();
+
+    @Fixed @Override @Nonnull @DefaultValue("\"ginger\"")
+    String color();
 }

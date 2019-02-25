@@ -1,6 +1,8 @@
 package databean.test;
 
 import databean.test.model.*;
+import databean.test.model2.Cat;
+import databean.test.model2.Felix;
 import org.junit.Test;
 
 import java.io.Serializable;
@@ -8,7 +10,7 @@ import java.util.function.Function;
 
 import static org.junit.Assert.*;
 
-public class TestUser {
+public class TestBasic {
     @Test
     public void testUser() {
         final User pedro = User.of()
@@ -71,84 +73,5 @@ public class TestUser {
         User.of().age(12)
                 .name("Test")
                 .ofName(null);
-    }
-
-
-
-
-
-
-    static private <R, V> Path<V> $(Function<R, V> name) {
-        return null;
-    }
-
-    static class Path<R> {
-        <V> Path<V> $(Function<R, V> name) {
-            return null;
-        }
-    }
-
-
-    public void testMetadata() {
-        //$(User::contact).$(Contact::address).$(Address::street);
-    }
-
-    interface A0 {
-        Object c();
-        default int d() {
-            return 0;
-        }
-    }
-    interface A extends A0 {
-        default int a() {
-            return 0;
-        }
-        Number b();
-        Number c();
-    }
-    interface A1 {
-        Integer b();
-        Serializable c();
-    }
-    interface A2 {
-        Serializable c();
-    }
-    interface B extends A, A1, A2 {
-        @Override
-        default int a() {
-            return A.super.a();
-        }
-        @Override
-        Integer b();
-        default Integer c() {
-            return null;
-        }
-    }
-    public static class C1 implements A {
-        @Override
-        public Number b() {
-            return null;
-        }
-
-        @Override
-        public Number c() {
-            return null;
-        }
-    }
-    public static class C extends C1 implements B {
-        @Override
-        public int a() {
-            return B.super.a();
-        }
-
-        @Override
-        public Integer b() {
-            return null;
-        }
-
-        @Override
-        public Integer c() {
-            return null;
-        }
     }
 }

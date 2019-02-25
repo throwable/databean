@@ -37,8 +37,8 @@ public class BeanPropertyResolver {
 
         final Map<String, BeanPropertyInfo> consolidatedProperties = new LinkedHashMap<>();
 
-        if (dataClassInfo.className().simpleName().equals("ICat"))
-            Math.random();
+        /*if (dataClassInfo.className().simpleName().equals("ICat"))
+            Math.random();*/
 
 
         /*

@@ -1,13 +1,14 @@
 package databean.test.model2;
 
 import databean.DataClass;
+import databean.Fixed;
 import databean.ReadOnly;
 
 import javax.annotation.Nonnull;
 
 @DataClass
 public interface ICat extends IPet {
-    @ReadOnly @Override @Nonnull
+    @Fixed @Override @Nonnull
     default String type() {
         return "Cat";
     }
@@ -25,4 +26,11 @@ public interface ICat extends IPet {
     default Integer age() {
         return 1;
     }
+
+    // allow default values for read-only method
+    @ReadOnly
+    boolean cutie();
+
+    @ReadOnly
+    String color();
 }

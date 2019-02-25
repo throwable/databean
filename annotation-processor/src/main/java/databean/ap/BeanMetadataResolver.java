@@ -100,7 +100,8 @@ public class BeanMetadataResolver {
 
                 boolean computed = executableElement.getAnnotation(Computed.class) != null;
                 boolean initial = executableElement.getAnnotation(Initial.class) != null;
-                boolean readonly = computed || executableElement.getAnnotation(ReadOnly.class) != null;
+                boolean fixed = executableElement.getAnnotation(Fixed.class) != null;
+                boolean readonly = fixed || computed || executableElement.getAnnotation(ReadOnly.class) != null;
                 String defaultValueExpression = executableElement.getAnnotation(DefaultValue.class) != null ?
                         executableElement.getAnnotation(DefaultValue.class).value() : "";
                 boolean hasDefaultValue = (executableElement.isDefault() || !defaultValueExpression.isEmpty())
@@ -146,7 +147,7 @@ public class BeanMetadataResolver {
                 try {
                     properties.add(new DataClassInfo.Property(propertyName, beanNameDeclaration, returnType, isDataClass, initial, readonly,
                             hasDefaultValue, defaultValueExpression.isEmpty() ? null : defaultValueExpression,
-                            computed, notNullAnnotation));
+                            computed, fixed, notNullAnnotation));
                 } catch (IllegalArgumentException e) {
                     throw new RuntimeException("DataClass property definition error " + className + "." + propertyName + ": " + e.getMessage(), e);
                 }
