@@ -56,6 +56,13 @@ public class BeanPropertyResolver {
             - check if all property types are compatible (one must be subinterface of another)
             */
             DataClassInfo.Property resultingProperty = properties.stream().max((prop1, prop2) -> {
+                // Prohibit inheritance of @Nonnull A.p -> @Nullable B.p
+                // Also prohibit inheritance of @Nonnull A.p -> B.p
+                if (prop1.notNullAnnotation != null && prop2.notNullAnnotation == null ||
+                        prop1.notNullAnnotation == null && prop2.notNullAnnotation != null)
+                    throw new RuntimeException("Property type of '" + dataClassInfo.className().simpleName() + "." +
+                            prop1.name + "' must be declared as \"non-nullable\" like one of it's ancestors");
+
                 if (procEnv.getTypeUtils().isSameType(prop1.type, prop2.type)) {
                     return 0;
                 } else {
@@ -135,6 +142,12 @@ public class BeanPropertyResolver {
                 continue;
             }
             final DataClassInfo.Property superProperty = superPropertyInfo.property;
+
+            // Prohibit inheritance of @Nonnull A.p -> @Nullable B.p
+            // Also prohibit inheritance of @Nonnull A.p -> B.p
+            if (property.notNullAnnotation == null && superProperty.notNullAnnotation != null)
+                throw new RuntimeException("Property type of '" + dataClassInfo.className().simpleName() + "." +
+                        property.name + "' must be declared as \"non-nullable\" like one of it's ancestors");
 
             if (!procEnv.getTypeUtils().isAssignable(property.type, superProperty.type)) {
                 // property.type is not assignable to superProperty.type

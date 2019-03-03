@@ -17,4 +17,9 @@ public @interface DataClass {
      * Generated bean will extend a bean generated from first inherited data interface
      */
     boolean inheritFromSuperclass() default true;
+
+    /**
+     * Abstract data class can not have instances
+     */
+    boolean isAbstract() default false;
 }

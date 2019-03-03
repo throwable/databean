@@ -70,7 +70,7 @@ public class BeanGenerator {
 
         generateInitializers(metaClass, dataClassInfo);
 
-        final List<BeanPropertyInfo> propertyInfos = beanPropertyResolver.beanProperties(dataClassInfo);
+        //final List<BeanPropertyInfo> propertyInfos = beanPropertyResolver.beanProperties(dataClassInfo);
 
         for (DataClassInfo.Property property : dataClassInfo.properties) {
 
@@ -387,19 +387,19 @@ public class BeanGenerator {
                                 .addCode(property.notNullAnnotation != null ?
                                         genCheckNotNull(dataClassInfo, property.name) :
                                         CodeBlock.builder().build())
-                                .beginControlFlow("try")
+                                /*.beginControlFlow("try")
                                 .addStatement("$T cloned = ($T) clone()", dataClassInfo.beanClassName(), dataClassInfo.beanClassName())
-                                /*.addStatement(hasBeanSetter ?
-                                        "cloned." + setterName(property.name) + "($N)" :
-                                        "cloned." + property.name + " = $N", property.name
-                                )*/
                                 // direct field access because setter may be masked with read-only precondition
                                 .addStatement("cloned.$N = $N", property.name, property.name)
                                 .addStatement("return cloned")
                                 .nextControlFlow("catch (CloneNotSupportedException e)")
                                 //.endControlFlow()
                                 .addStatement("throw new RuntimeException(e)")
-                                .endControlFlow()
+                                .endControlFlow()*/
+                                .addStatement("$T cloned = new $T()", dataClassInfo.beanClassName(), dataClassInfo.beanClassName())
+                                .addStatement("this.$$fill(cloned)")
+                                .addStatement("cloned.$N = $N", property.name, property.name)
+                                .addStatement("return cloned")
                                 .build());
                     }
                     else {
@@ -440,8 +440,15 @@ public class BeanGenerator {
                 .methodBuilder("$init")
                 .returns(TypeName.VOID);
 
-        if (beanSuperClass != null)
+        final MethodSpec.Builder $fill = MethodSpec.methodBuilder("$fill")
+                .addModifiers(Modifier.PROTECTED)
+                .returns(Void.TYPE)
+                .addParameter(ParameterSpec.builder(dataClassInfo.beanClassName(), "cloned").build());
+
+        if (beanSuperClass != null) {
             $init.addStatement("super.$$init()");
+            $fill.addStatement("super.$$fill(cloned)");
+        }
 
         for (DataClassInfo.Property property : dataClassInfo.properties) {
         /*for (BeanPropertyInfo propertyInfo : properties) {
@@ -458,8 +465,14 @@ public class BeanGenerator {
                         property.name);
             }
         }
+        for (BeanPropertyInfo property : properties) {
+            if (property.beanSuperclassProperty == null) {
+                $fill.addStatement("cloned.$N = this.$N", property.property.name, property.property.name);
+            }
+        }
 
         beanClass.addMethod($init.build());
+        beanClass.addMethod($fill.build());
 
         // if class has initial parameters add non-public empty constructor
         if (properties.stream().anyMatch(it -> it.property.isInitial))

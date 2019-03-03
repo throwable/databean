@@ -80,7 +80,19 @@ Objetivos e ideas:
 
     [x] Check: all overridden properties with a default value must also provide default value
 
-    [ ] Para ofXXX() methods cambiar Bean.clone by new Bean() + setters methods
+    [x] Para ofXXX() methods cambiar Bean.clone by new Bean() + setters methods porque:
+        - en caso de inheritance @RW A.p -> @RO B.p no se genera B.ofP() pero existe A.ofP()
+            que va a clonear el objeto B cambiando el valor de propiedad p
+        - setter methods may have come restrictions (Nonnull, etc...)
+            - use direct field access instead of setter()
+
+    [x] Prohibit inheritance of @Nonnull A.p -> @Nullable B.p
+        - also prohibit inheritance of @Nonnull A.p -> B.p
+
+    [ ] Add "abstract" annotation
+        - Generated bean will also be "abstract"
+        - No public constructor will be generated (the same constructor with protected)
+        - No public ofXXX() methods will be generated -- only protected
 
     [ ] Tests:
         [x] superclass: readonly property -> subclass: mutable property
@@ -90,15 +102,16 @@ Objetivos e ideas:
         [ ] Model generation with @DataClass.generateBeanAccessors=false
 
 
-[ ] Default setter
-
 [ ] Configuración sobre los paquetes en package-info.java que establece
     valores por defecto sobre @DataClass de los subpaquetes de forma jerarquica
     [ ] Configuración de propiedades: utilizar @Property(name="")
 
 [ ] Equals/HashCode/ToString generation
 
-[ ] ? Optional support
+[ ] Optional support
+    - optional fields by-default are @Nonnull and with default value Optional.empty() if another default value is not specified
+
+[ ] Default setter -- que es???
 
 [ ] Annotation propagation:
         @JsonProperty

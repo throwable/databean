@@ -7,6 +7,7 @@ import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.TypeMirror;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -155,6 +156,14 @@ public class DataClassInfo {
             result = 31 * result + (notNullAnnotation != null ? notNullAnnotation.hashCode() : 0);
             return result;
         }
+
+        @Override
+        public String toString() {
+            return "Property{" +
+                    "name='" + name + '\'' +
+                    ", type=" + type +
+                    '}';
+        }
     }
 
     @Nullable
@@ -164,7 +173,11 @@ public class DataClassInfo {
     public final String metaClassSimpleName;
     public final String beanClassName;
 
+    /**
+     * Only properties declared or redefined in this data class ignoring inherited property definitions
+     */
     public final List<Property> properties;
+
     public final boolean generateBeanAccessors;
     public final boolean inheritFromSuperclass;
     public final List<ExecutableElement> customConstructors;
@@ -233,5 +246,13 @@ public class DataClassInfo {
             // IUser -> User
             ;
         else return className + "Bean";*/
+    }
+
+
+    @Override
+    public String toString() {
+        return "DataClassInfo{" +
+                "classType=" + classType +
+                '}';
     }
 }
