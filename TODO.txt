@@ -89,7 +89,7 @@ Objetivos e ideas:
     [x] Prohibit inheritance of @Nonnull A.p -> @Nullable B.p
         - also prohibit inheritance of @Nonnull A.p -> B.p
 
-    [ ] Add "abstract" annotation
+    [x] Add "abstract" annotation
         - Generated bean will also be "abstract"
         - No public constructor will be generated (the same constructor with protected)
         - No public ofXXX() methods will be generated -- only protected
@@ -107,6 +107,9 @@ Objetivos e ideas:
     [ ] Configuración de propiedades: utilizar @Property(name="")
 
 [ ] Equals/HashCode/ToString generation
+    [ ] Add annotation @Identity? that will be applied:
+        - over properties: property will be used to calculate equals/hashcode/tostring
+        - over whole class: all properties in the class will be used to calculate equals/hashcode/tostring
 
 [ ] Optional support
     - optional fields by-default are @Nonnull and with default value Optional.empty() if another default value is not specified

@@ -7,7 +7,7 @@ import databean.ReadOnly;
 
 import javax.annotation.Nonnull;
 
-@DataClass
+@DataClass(isAbstract = true)
 public interface IPet {
     @Initial @Nonnull
     String type();

@@ -7,7 +7,6 @@ import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.TypeMirror;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -172,6 +171,7 @@ public class DataClassInfo {
     public final TypeMirror classType;
     public final String metaClassSimpleName;
     public final String beanClassName;
+    public final boolean isAbstract;
 
     /**
      * Only properties declared or redefined in this data class ignoring inherited property definitions
@@ -186,7 +186,7 @@ public class DataClassInfo {
 
 
     public DataClassInfo(@Nullable DataClassInfo enclosingClass, TypeMirror enclosingType,
-                         TypeMirror classType, String metaClassSimpleName, List<Property> properties,
+                         TypeMirror classType, String metaClassSimpleName, boolean isAbstract, List<Property> properties,
                          boolean generateBeanAccessors, boolean inheritFromSuperclass,
                          List<ExecutableElement> customConstructors, List<DataClassInfo> superClasses)
     {
@@ -194,6 +194,7 @@ public class DataClassInfo {
         this.classType = classType;
         this.metaClassSimpleName = metaClassSimpleName;
         this.enclosingClass = enclosingClass;
+        this.isAbstract = isAbstract;
         this.generateBeanAccessors = generateBeanAccessors;
         this.inheritFromSuperclass = inheritFromSuperclass;
         this.superClasses = superClasses;

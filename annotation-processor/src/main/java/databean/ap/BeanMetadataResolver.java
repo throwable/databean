@@ -76,7 +76,8 @@ public class BeanMetadataResolver {
         }
 
         dataClassInfo = new DataClassInfo(enclosingClass, enclosingType, element.asType(), metaClassName,
-                properties, generateBeanAccessors, dataClassAnno.inheritFromSuperclass(), customConstructors, superClasses);
+                dataClassAnno.isAbstract(), properties, generateBeanAccessors, dataClassAnno.inheritFromSuperclass(),
+                customConstructors, superClasses);
         cache.put(element.getQualifiedName().toString(), dataClassInfo);
         return dataClassInfo;
     }

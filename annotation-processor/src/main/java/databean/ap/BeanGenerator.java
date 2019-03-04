@@ -11,9 +11,8 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.lang.annotation.Annotation;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
@@ -68,7 +67,8 @@ public class BeanGenerator {
         dataClassInfo.superClasses.forEach(it ->
             metaClass.addSuperinterface(it.metaClassName()));
 
-        generateInitializers(metaClass, dataClassInfo);
+        if (!dataClassInfo.isAbstract)
+            generateInitializers(metaClass, dataClassInfo);
 
         //final List<BeanPropertyInfo> propertyInfos = beanPropertyResolver.beanProperties(dataClassInfo);
 
@@ -99,7 +99,7 @@ public class BeanGenerator {
                         .build());
             } else {
                 // native copy-setter: ofXXX()
-                if (!property.isFixed) {
+                if (!property.isFixed && !dataClassInfo.isAbstract) {
                     metaClass.addMethod(MethodSpec
                             .methodBuilder("of" + capitalize(property.name))
                             .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
@@ -168,18 +168,20 @@ public class BeanGenerator {
         }
 
         // copy custom constructors
-        for (ExecutableElement customConstructor : dataClassInfo.customConstructors) {
-            metaClass.addMethod(MethodSpec.methodBuilder(customConstructor.getSimpleName().toString())
-                    .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                    .returns(dataClassInfo.metaClassName())
-                    .addParameters(customConstructor.getParameters().stream()
-                            .map(ParameterSpec::get).collect(Collectors.toList()))
-                    .addStatement("return ($T) $T.of($L)", dataClassInfo.metaClassName(), dataClassInfo.className(),
-                            customConstructor.getParameters().stream()
-                                    .map(VariableElement::getSimpleName)
-                                    .collect(Collectors.joining(","))
-                    )
-                    .build());
+        if (!dataClassInfo.isAbstract) {
+            for (ExecutableElement customConstructor : dataClassInfo.customConstructors) {
+                metaClass.addMethod(MethodSpec.methodBuilder(customConstructor.getSimpleName().toString())
+                        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                        .returns(dataClassInfo.metaClassName())
+                        .addParameters(customConstructor.getParameters().stream()
+                                .map(ParameterSpec::get).collect(Collectors.toList()))
+                        .addStatement("return ($T) $T.of($L)", dataClassInfo.metaClassName(), dataClassInfo.className(),
+                                customConstructor.getParameters().stream()
+                                        .map(VariableElement::getSimpleName)
+                                        .collect(Collectors.joining(","))
+                        )
+                        .build());
+            }
         }
 
         // nested data classes
@@ -227,7 +229,7 @@ public class BeanGenerator {
 
         final MethodSpec.Builder constructorBuilder = MethodSpec
                 .constructorBuilder()
-                .addModifiers(Modifier.PUBLIC);
+                .addModifiers(dataClassInfo.isAbstract ? Modifier.PROTECTED : Modifier.PUBLIC);
 
         final List<BeanPropertyInfo> properties = beanPropertyResolver.beanProperties(dataClassInfo);
 
@@ -380,8 +382,9 @@ public class BeanGenerator {
                         // copy-and-set
                         beanClass.addMethod(MethodSpec
                                 .methodBuilder("of" + capitalize(property.name))
-                                .addAnnotation(Override.class)
-                                .addModifiers(Modifier.PUBLIC)
+                                .addAnnotations(dataClassInfo.isAbstract ? Collections.emptyList() :
+                                        Collections.singletonList(AnnotationSpec.builder(Override.class).build()))
+                                .addModifiers(dataClassInfo.isAbstract ? Modifier.PROTECTED : Modifier.PUBLIC)
                                 .returns(dataClassInfo.metaClassName())
                                 .addParameter(parameterSpec)
                                 .addCode(property.notNullAnnotation != null ?
@@ -419,8 +422,9 @@ public class BeanGenerator {
                         if (superTypeHasOfXXXDefined) {
                             beanClass.addMethod(MethodSpec
                                     .methodBuilder("of" + capitalize(property.name))
-                                    .addModifiers(Modifier.PUBLIC)
-                                    .addAnnotation(Override.class)
+                                    .addModifiers(dataClassInfo.isAbstract ? Modifier.PROTECTED : Modifier.PUBLIC)
+                                    .addAnnotations(dataClassInfo.isAbstract ? Collections.emptyList() :
+                                            Collections.singletonList(AnnotationSpec.builder(Override.class).build()))
                                     .returns(dataClassInfo.metaClassName())
                                     .addParameter(parameterSpec)
                                     .addStatement("throw new UnsupportedOperationException($S)", "attempt to change fixed property")
@@ -507,14 +511,14 @@ public class BeanGenerator {
         // of(...) method
         final MethodSpec.Builder initMethodBuilder = MethodSpec
                 .methodBuilder("of")
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .addModifiers(dataClassInfo.isAbstract ? Modifier.PROTECTED : Modifier.PUBLIC, Modifier.STATIC)
                 .returns(dataClassInfo.metaClassName());
 
         if (!initProperties.isEmpty()) {
             // staging init method
             final MethodSpec.Builder stagingInitMethodBuilder = MethodSpec
                     .methodBuilder("of")
-                    .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                    .addModifiers(dataClassInfo.isAbstract ? Modifier.PROTECTED : Modifier.PUBLIC, Modifier.STATIC)
                     .returns(ClassName.get("", "$" + initProperties.get(0).name))
                     .addStatement("$T bean = new $T()", dataClassInfo.beanClassName(), dataClassInfo.beanClassName())
                     .addStatement("return new $$" + initProperties.get(0).name + "(bean)");
